@@ -15,8 +15,8 @@
 ;;   - C-c a g m: Generate an Angular NgModule definition.
 ;;   - C-c a g p: Generate an Angular pipe.
 ;;   - C-c a g r: Generate an Angular resolver.
-;;   - C-c a g sw: Create an Angular service worker.
-;;   - C-c a g ww: Generate an Angular web worker.
+;;   - C-c a g x: Create an Angular service worker.
+;;   - C-c a g w: Generate an Angular web worker.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings.
 ;; For example, use C-c a g c to generate an Angular component interactively.
@@ -86,8 +86,8 @@
             (define-key map (kbd "C-c a g m") 'angular-generate-module)
             (define-key map (kbd "C-c a g p") 'angular-generate-pipe)
             (define-key map (kbd "C-c a g r") 'angular-generate-resolver)
-            (define-key map (kbd "C-c a g sw") 'angular-generate-service-worker)
-            (define-key map (kbd "C-c a g ww") 'angular-generate-web-worker)
+            (define-key map (kbd "C-c a g x") 'angular-generate-service-worker)
+            (define-key map (kbd "C-c a g w") 'angular-generate-web-worker)
             map))
 
 ;; TODO: Allow this to be customized.
