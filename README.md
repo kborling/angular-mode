@@ -21,3 +21,82 @@ Using the `C-c a g` command, you can perform the following:
 - Choose a schematic from the list.
 - Specify a name for the selected schematic.
 - Pick a destination directory for the generated schematic.
+
+## Installation
+
+You can install `angular-mode` manually or via a package manager.
+
+### Manual Installation
+
+1. Clone or download this repository to your local machine.
+
+   ```sh
+   git clone https://github.com/kborling/angular-mode.git
+   ```
+
+2. Add the following to your Emacs configuration file:
+
+   ``` elisp
+   (add-to-list 'load-path "/path/to/angular-mode")
+   (require 'angular-mode)
+   ```
+
+### Install Using Package Manager
+You can install angular-mode using popular package managers such as Straight and Elpaca. Choose the method that suits your preference:
+
+## Straight
+    ``` elisp
+    (straight-use-package
+      '(angular-mode :type git :host github :repo "kborling/angular-mode"))
+    ;; Using the use-package integration
+    (use-package angular-mode
+      :straight (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
+    ```
+
+## Elpaca
+    ``` elisp
+    (use-package angular-mode
+      :elpaca (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
+    ```
+
+## Doom Emacs
+    ``` elisp
+    (package! angular-mode
+      :recipe (:host github :repo "kborling/angular-mode"))
+    ```
+
+## Spacemacs
+    ``` elisp
+    (angular-mode :location (recipe :fetcher github :repo "kborling/angular-mode"))
+    ```
+
+## Configuration
+
+### Setting `angular-cli` executable
+
+`angular-mode` assumes the Angular CLI tool is installed globally. If that's not the case, set the `angular-cli-executable`:
+
+``` elisp
+(setq angular-cli-executable "/path/to/ng/command")
+```
+
+### Global Activation
+To activate `angular-mode` globally, add the following:
+``` elisp
+(global-angular-mode 1)
+```
+
+### Project Setup
+To activate `angular-mode` automatically for a specific project, follow these steps:
+
+1. In your project root directory, create a `.dir-locals.el` file if it doesn't already exist.
+
+2. Open the `.dir-locals.el` file and add the following:
+
+```elisp
+((nil . ((mode . angular))))
+```
+
+3. Save the `.dir-locals.el` file.
+
+This will automatically activate `angular-mode` when visiting any file within the project.
