@@ -5,6 +5,7 @@
 ;;
 ;; Keybindings:
 ;;   - C-c a g: Generate an Angular schematic.
+;;   - C-c a c: Open the project's angular.json file.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -85,12 +86,27 @@
     (setq directory (concat directory name))
     (shell-command (format "%s generate %s %s " angular-cli-executable schematic directory))))
 
+(defun find-angular-project-root ()
+  "Find the root directory of an Angular project."
+  (let ((current-dir (file-name-directory (or buffer-file-name default-directory)))
+        (root-file "angular.json"))
+    (locate-dominating-file current-dir root-file)))
+
+(defun angular-project-config ()
+  "Open the project's angular.json file."
+  (interactive)
+  (let ((project-root (find-angular-project-root)))
+    (if project-root
+        (find-file (expand-file-name "angular.json" project-root))
+      (message "Not inside an Angular project with an angular.json file."))))
+
 ;;;###autoload
 (define-minor-mode angular-mode
   "Minor mode for working with Angular CLI."
   :lighter " Angular"
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c a g") 'angular-generate)
+            (define-key map (kbd "C-c a c") 'angular-project-config)
             map))
 
 (define-globalized-minor-mode global-angular-mode angular-mode

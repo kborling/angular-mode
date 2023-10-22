@@ -4,9 +4,10 @@ Angular Mode offers an interactive API for Angular CLI commands through a dedica
 
 ## Keybindings
 
-| Keybinding | Command Description            | Command            |
-|------------|--------------------------------|--------------------|
-| `C-c a g`  | Generate an Angular Schematic. | `angular-generate` |
+| Keybinding | Command Description                     | Command                  |
+|------------|-----------------------------------------|--------------------------|
+| `C-c a g`  | Generate an Angular Schematic.          | `angular-generate`       |
+| `C-c a c`  | Open the project's `angular.json` file. | `angular-project-config` |
 
 **Note**: At the moment, Angular Mode only supports the `generate` commands.
 
@@ -41,7 +42,7 @@ You can install `angular-mode` manually or via a package manager.
    (require 'angular-mode)
    ```
 
-## Install Using Package Manager
+## Install Using a Package Manager
 You can install angular-mode using popular package managers such as Straight and Elpaca. Choose the method that suits your preference:
 
 ### Straight
