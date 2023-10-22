@@ -41,10 +41,10 @@ You can install `angular-mode` manually or via a package manager.
    (require 'angular-mode)
    ```
 
-### Install Using Package Manager
+## Install Using Package Manager
 You can install angular-mode using popular package managers such as Straight and Elpaca. Choose the method that suits your preference:
 
-## Straight
+### Straight
 ```elisp
 (straight-use-package
   '(angular-mode :type git :host github :repo "kborling/angular-mode"))
@@ -53,19 +53,19 @@ You can install angular-mode using popular package managers such as Straight and
   :straight (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
 ```
 
-## Elpaca
+### Elpaca
 ```elisp
 (use-package angular-mode
   :elpaca (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
 ```
 
-## Doom Emacs
+### Doom Emacs
 ```elisp
 (package! angular-mode
   :recipe (:host github :repo "kborling/angular-mode"))
 ```
 
-## Spacemacs
+### Spacemacs
 ```elisp
 (angular-mode :location (recipe :fetcher github :repo "kborling/angular-mode"))
 ```
