@@ -36,7 +36,7 @@ You can install `angular-mode` manually or via a package manager.
 
 2. Add the following to your Emacs configuration file:
 
-   ``` elisp
+   ```elisp
    (add-to-list 'load-path "/path/to/angular-mode")
    (require 'angular-mode)
    ```
@@ -45,30 +45,30 @@ You can install `angular-mode` manually or via a package manager.
 You can install angular-mode using popular package managers such as Straight and Elpaca. Choose the method that suits your preference:
 
 ## Straight
-    ``` elisp
-    (straight-use-package
-      '(angular-mode :type git :host github :repo "kborling/angular-mode"))
-    ;; Using the use-package integration
-    (use-package angular-mode
-      :straight (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
-    ```
+```elisp
+(straight-use-package
+  '(angular-mode :type git :host github :repo "kborling/angular-mode"))
+;; Using the use-package integration
+(use-package angular-mode
+  :straight (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
+```
 
 ## Elpaca
-    ``` elisp
-    (use-package angular-mode
-      :elpaca (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
-    ```
+```elisp
+(use-package angular-mode
+  :elpaca (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
+```
 
 ## Doom Emacs
-    ``` elisp
-    (package! angular-mode
-      :recipe (:host github :repo "kborling/angular-mode"))
-    ```
+```elisp
+(package! angular-mode
+  :recipe (:host github :repo "kborling/angular-mode"))
+```
 
 ## Spacemacs
-    ``` elisp
-    (angular-mode :location (recipe :fetcher github :repo "kborling/angular-mode"))
-    ```
+```elisp
+(angular-mode :location (recipe :fetcher github :repo "kborling/angular-mode"))
+```
 
 ## Configuration
 
@@ -76,13 +76,13 @@ You can install angular-mode using popular package managers such as Straight and
 
 `angular-mode` assumes the Angular CLI tool is installed globally. If that's not the case, set the `angular-cli-executable`:
 
-``` elisp
+```elisp
 (setq angular-cli-executable "/path/to/ng/command")
 ```
 
 ### Global Activation
 To activate `angular-mode` globally, add the following:
-``` elisp
+```elisp
 (global-angular-mode 1)
 ```
 
