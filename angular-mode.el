@@ -4,23 +4,10 @@
 ;; It offers an interactive API for Angular CLI commands through a dedicated keymap.
 ;;
 ;; Keybindings:
-;;   - C-c a g t: Generate an Angular type.
-;;   - C-c a g c: Generate an Angular component.
-;;   - C-c a g s: Generate an Angular service.
-;;   - C-c a g d: Generate an Angular directive.
-;;   - C-c a g e: Generate an Angular enum.
-;;   - C-c a g n: Generate and configure environment files for a project.
-;;   - C-c a g g: Generate an Angular route guard.
-;;   - C-c a g i: Generate an Angular interceptor.
-;;   - C-c a g l: Create a new Angular library project.
-;;   - C-c a g m: Generate an Angular NgModule definition.
-;;   - C-c a g p: Generate an Angular pipe.
-;;   - C-c a g r: Generate an Angular resolver.
-;;   - C-c a g x: Create an Angular service worker.
-;;   - C-c a g w: Generate an Angular web worker.
+;;   - C-c a g: Generate an Angular schematic.
 ;;
-;; To use this package, activate `angular-mode` and leverage the provided keybindings.
-;; For example, use C-c a g c to generate an Angular component interactively.
+;; To use this package, activate `angular-mode` and leverage the provided keybindings
+;; to generate schematics in the project directory of choice.
 ;;
 ;; Copyright (C) 2023 Kevin Borling <kborling@protonmail.com>
 ;;
@@ -76,20 +63,7 @@
   "Minor mode for working with Angular CLI."
   :lighter " Angular"
   :keymap (let ((map (make-sparse-keymap)))
-            (define-key map (kbd "C-c a g t") 'angular-generate)
-            (define-key map (kbd "C-c a g c") 'angular-generate-component)
-            (define-key map (kbd "C-c a g s") 'angular-generate-service)
-            (define-key map (kbd "C-c a g d") 'angular-generate-directive)
-            (define-key map (kbd "C-c a g e") 'angular-generate-enum)
-            (define-key map (kbd "C-c a g n") 'angular-generate-environments)
-            (define-key map (kbd "C-c a g g") 'angular-generate-guard)
-            (define-key map (kbd "C-c a g i") 'angular-generate-interceptor)
-            (define-key map (kbd "C-c a g l") 'angular-generate-library)
-            (define-key map (kbd "C-c a g m") 'angular-generate-module)
-            (define-key map (kbd "C-c a g p") 'angular-generate-pipe)
-            (define-key map (kbd "C-c a g r") 'angular-generate-resolver)
-            (define-key map (kbd "C-c a g x") 'angular-generate-service-worker)
-            (define-key map (kbd "C-c a g w") 'angular-generate-web-worker)
+            (define-key map (kbd "C-c a g") 'angular-generate)
             map))
 
 ;; TODO: Allow this to be customized.
@@ -99,9 +73,9 @@
     "ng")
   "Path to the Angular CLI executable.")
 
-(defun angular-generate (type name)
-  "Generate an Angular 'TYPE' called 'NAME' in the directory of choice."
-  (interactive (list (completing-read "Type: "
+(defun angular-generate (schematic name)
+  "Generate an Angular 'SCHEMATIC' called 'NAME' in the directory of choice."
+  (interactive (list (completing-read "Schematic: "
                                       '("component" "service" "directive" "enum" "environments" "guard" "interceptor" "library" "module" "pipe" "resolver" "service-worker" "web-worker"))
                      (read-string "Name: ")))
   (let* ((selected-directory (file-name-as-directory (expand-file-name (read-directory-name "Select a directory: "))))
@@ -112,92 +86,7 @@
                       (concat (if (not (string-suffix-p "/" relative-path)) "../")
                               relative-path))))
     (setq directory (concat directory name))
-    (shell-command (format "%s generate %s %s " angular-cli-executable type directory))))
-
-(defun angular-generate-app-shell(name)
-  "Generate an Angular app shell called 'NAME'."
-  (interactive "sApp shell name: ")
-  (angular-generate "app-shell" name))
-
-(defun angular-generate-application(name)
-  "Generate a new basic application definition in the workspace called 'NAME'."
-  (interactive "sApplication name: ")
-  (angular-generate "application" name))
-
-(defun angular-generate-class(name)
-  "Generate a new class definition in the project called 'NAME'."
-  (interactive "sClass name: ")
-  (angular-generate "class" name))
-
-(defun angular-generate-component(name)
-  "Generate a new component definition in the project called 'NAME'."
-  (interactive "sComponent name: ")
-  (angular-generate "component" name))
-
-(defun angular-generate-directive(name)
-  "Generate a new directive definition in the project called 'NAME'."
-  (interactive "sDirective name: ")
-  (angular-generate "directive" name))
-
-(defun angular-generate-enum(name)
-  "Generate a new enum definition in the project called 'NAME'."
-  (interactive "sEnum name: ")
-  (angular-generate "enum" name))
-
-(defun angular-generate-environments()
-  "Generate and configure environment files for a project."
-  (interactive)
-  (angular-generate "environments" ""))
-
-(defun angular-generate-guard(name)
-  "Generate a new route guard definition in the project called 'NAME'."
-  (interactive "sGuard name: ")
-  (angular-generate "guard" name))
-
-(defun angular-generate-interceptor(name)
-  "Generate a new interceptor definition in the project called 'NAME'."
-  (interactive "sInterceptor name: ")
-  (angular-generate "interceptor" name))
-
-(defun angular-generate-interface(name)
-  "Generate a new interface definition in the project called 'NAME'."
-  (interactive "sInterface name: ")
-  (angular-generate "interface" name))
-
-(defun angular-generate-library(name)
-  "Generate a new library project in the current workspace called 'NAME'."
-  (interactive "sLibrary name: ")
-  (angular-generate "library" name))
-
-(defun angular-generate-module(name)
-  "Generate a new NgModule definition in the project called 'NAME'."
-  (interactive "sModule name: ")
-  (angular-generate "module" name))
-
-(defun angular-generate-pipe(name)
-  "Generate a new pipe definition in the project called 'NAME'."
-  (interactive "sPipe name: ")
-  (angular-generate "pipe" name))
-
-(defun angular-generate-resolver(name)
-  "Generate a new resolver definition in the project called 'NAME'."
-  (interactive "sResolver name: ")
-  (angular-generate "resolver" name))
-
-(defun angular-generate-service(name)
-  "Generate a new service definition in the project called 'NAME'."
-  (interactive "sService name: ")
-  (angular-generate "service" name))
-
-(defun angular-generate-service-worker()
-  "Pass this schematic to the run command to create a service worker."
-  (interactive)
-  (angular-generate "service-worker" ""))
-
-(defun angular-generate-web-worker(name)
-  "Generate a new web worker definition in the project called 'NAME'."
-  (interactive "sWeb worker name: ")
-  (angular-generate "web-worker" name))
+    (shell-command (format "%s generate %s %s " angular-cli-executable schematic directory))))
 
 (provide 'angular-mode)
 ;;; angular-mode.el ends here
