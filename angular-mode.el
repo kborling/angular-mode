@@ -75,6 +75,7 @@
   "Minor mode for working with Angular CLI."
   :lighter " Angular"
   :keymap (let ((map (make-sparse-keymap)))
+            (define-key map (kbd "C-c a g t") 'angular-generate)
             (define-key map (kbd "C-c a g c") 'angular-generate-component)
             (define-key map (kbd "C-c a g s") 'angular-generate-service)
             (define-key map (kbd "C-c a g d") 'angular-generate-directive)
@@ -97,10 +98,13 @@
     "ng")
   "Path to the Angular CLI executable.")
 
-(defun angular-generate(name type)
-  "Generate an Angular 'TYPE' called 'NAME'."
-  (interactive (list (read-string "Name: ") (completing-read "Type: " '("component" "service"))))
-  (shell-command (format "%s generate %s %s" angular-cli-executable type name)))
+(defun angular-generate (type name)
+  "Generate an Angular 'TYPE' called 'NAME' in the directory of choice."
+  (interactive (list (completing-read "Type: "
+                              '("component" "service" "directive" "enum" "environments" "guard" "interceptor" "library" "module" "pipe" "resolver" "service-worker" "web-worker"))
+                     (read-string "Name: ")))
+  (let ((directory (read-directory-name "Select a directory: ")))
+    (shell-command (format "%s generate %s %s %s" angular-cli-executable type name directory))))
 
 (defun angular-generate-app-shell(name)
   "Generate an Angular app shell called 'NAME'."
