@@ -74,7 +74,7 @@
 (defun angular-generate (schematic name)
   "Generate an Angular 'SCHEMATIC' called 'NAME' in the directory of choice."
   (interactive (list (completing-read "Schematic: "
-                                      '("component" "service" "directive" "enum" "environments" "guard" "interceptor" "library" "module" "pipe" "resolver" "service-worker" "web-worker"))
+                                      '("class" "component" "directive" "enum" "guard" "interceptor" "interface" "module" "pipe" "resolver" "service" "web-worker"))
                      (read-string "Name: ")))
   (let* ((selected-directory (file-name-as-directory (expand-file-name (read-directory-name "Select a directory: "))))
          (current-directory (file-name-directory default-directory))
