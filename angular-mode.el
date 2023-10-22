@@ -9,14 +9,14 @@
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
 ;;
+;;
 ;; Copyright (C) 2023 Kevin Borling <kborling@protonmail.com>
 ;;
 ;; Author: Kevin Borling <kborling@protonmail.com>
 ;; Created: October 16, 2023
-;; Version: 0.0.1
+;; Version: 0.0.2
 ;; Keywords: angular, angular-cli, angular-mode
 ;; License: MIT
-;; Keywords: custom themes, dark, faces
 ;; URL: https://github.com/kborling/angular-mode
 ;; Homepage: https://github.com/kborling/angular-mode
 ;; Filename: angular-mode.el
@@ -59,14 +59,11 @@
 ;; Enjoy working with Angular in Emacs!
 ;;
 ;;; Code:
-(define-minor-mode angular-mode
-  "Minor mode for working with Angular CLI."
-  :lighter " Angular"
-  :keymap (let ((map (make-sparse-keymap)))
-            (define-key map (kbd "C-c a g") 'angular-generate)
-            map))
 
-;; TODO: Allow this to be customized.
+(defgroup angular-mode nil
+  "Angular mode, a minor mode for interacting with the Angular CLI."
+  :group 'angular-mode)
+
 (defvar angular-cli-executable
   (if (executable-find "npx")
       "npx ng"
@@ -87,6 +84,17 @@
                               relative-path))))
     (setq directory (concat directory name))
     (shell-command (format "%s generate %s %s " angular-cli-executable schematic directory))))
+
+;;;###autoload
+(define-minor-mode angular-mode
+  "Minor mode for working with Angular CLI."
+  :lighter " Angular"
+  :keymap (let ((map (make-sparse-keymap)))
+            (define-key map (kbd "C-c a g") 'angular-generate)
+            map))
+
+(define-globalized-minor-mode global-angular-mode angular-mode
+  (lambda () (angular-mode 1)))
 
 (provide 'angular-mode)
 ;;; angular-mode.el ends here
