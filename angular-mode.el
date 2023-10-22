@@ -4,6 +4,7 @@
 ;; It offers an interactive API for Angular CLI commands through a dedicated keymap.
 ;;
 ;; Keybindings:
+;;   - C-c a g t: Generate an Angular type.
 ;;   - C-c a g c: Generate an Angular component.
 ;;   - C-c a g s: Generate an Angular service.
 ;;   - C-c a g d: Generate an Angular directive.
@@ -103,100 +104,100 @@
   (interactive (list (completing-read "Type: "
                                       '("component" "service" "directive" "enum" "environments" "guard" "interceptor" "library" "module" "pipe" "resolver" "service-worker" "web-worker"))
                      (read-string "Name: ")))
-  (let* ((selected-directory (expand-file-name (read-directory-name "Select a directory: ")))
+  (let* ((selected-directory (file-name-as-directory (expand-file-name (read-directory-name "Select a directory: "))))
          (current-directory (file-name-directory default-directory))
          (relative-path (file-relative-name selected-directory current-directory))
          (directory (if (string-prefix-p "/" relative-path)
                         relative-path
                       (concat (if (not (string-suffix-p "/" relative-path)) "../")
                               relative-path))))
-         (setq directory (concat directory name))
-         (shell-command (format "%s generate %s %s " angular-cli-executable type directory))))
+    (setq directory (concat directory name))
+    (shell-command (format "%s generate %s %s " angular-cli-executable type directory))))
 
-  (defun angular-generate-app-shell(name)
-    "Generate an Angular app shell called 'NAME'."
-    (interactive "sApp shell name: ")
-    (angular-generate name "app-shell"))
+(defun angular-generate-app-shell(name)
+  "Generate an Angular app shell called 'NAME'."
+  (interactive "sApp shell name: ")
+  (angular-generate "app-shell" name))
 
-  (defun angular-generate-application(name)
-    "Generate a new basic application definition in the workspace called 'NAME'."
-    (interactive "sApplication name: ")
-    (angular-generate name "application"))
+(defun angular-generate-application(name)
+  "Generate a new basic application definition in the workspace called 'NAME'."
+  (interactive "sApplication name: ")
+  (angular-generate "application" name))
 
-  (defun angular-generate-class(name)
-    "Generate a new class definition in the project called 'NAME'."
-    (interactive "sClass name: ")
-    (angular-generate name "class"))
+(defun angular-generate-class(name)
+  "Generate a new class definition in the project called 'NAME'."
+  (interactive "sClass name: ")
+  (angular-generate "class" name))
 
-  (defun angular-generate-component(name)
-    "Generate a new component definition in the project called 'NAME'."
-    (interactive "sComponent name: ")
-    (angular-generate name "component"))
+(defun angular-generate-component(name)
+  "Generate a new component definition in the project called 'NAME'."
+  (interactive "sComponent name: ")
+  (angular-generate "component" name))
 
-  (defun angular-generate-directive(name)
-    "Generate a new directive definition in the project called 'NAME'."
-    (interactive "sDirective name: ")
-    (angular-generate name "directive"))
+(defun angular-generate-directive(name)
+  "Generate a new directive definition in the project called 'NAME'."
+  (interactive "sDirective name: ")
+  (angular-generate "directive" name))
 
-  (defun angular-generate-enum(name)
-    "Generate a new enum definition in the project called 'NAME'."
-    (interactive "sEnum name: ")
-    (angular-generate name "enum"))
+(defun angular-generate-enum(name)
+  "Generate a new enum definition in the project called 'NAME'."
+  (interactive "sEnum name: ")
+  (angular-generate "enum" name))
 
-  (defun angular-generate-environments()
-    "Generate and configure environment files for a project."
-    (interactive)
-    (angular-generate "" "environments"))
+(defun angular-generate-environments()
+  "Generate and configure environment files for a project."
+  (interactive)
+  (angular-generate "environments" ""))
 
-  (defun angular-generate-guard(name)
-    "Generate a new route guard definition in the project called 'NAME'."
-    (interactive "sGuard name: ")
-    (angular-generate name "guard"))
+(defun angular-generate-guard(name)
+  "Generate a new route guard definition in the project called 'NAME'."
+  (interactive "sGuard name: ")
+  (angular-generate "guard" name))
 
-  (defun angular-generate-interceptor(name)
-    "Generate a new interceptor definition in the project called 'NAME'."
-    (interactive "sInterceptor name: ")
-    (angular-generate name "interceptor"))
+(defun angular-generate-interceptor(name)
+  "Generate a new interceptor definition in the project called 'NAME'."
+  (interactive "sInterceptor name: ")
+  (angular-generate "interceptor" name))
 
-  (defun angular-generate-interface(name)
-    "Generate a new interface definition in the project called 'NAME'."
-    (interactive "sInterface name: ")
-    (angular-generate name "interface"))
+(defun angular-generate-interface(name)
+  "Generate a new interface definition in the project called 'NAME'."
+  (interactive "sInterface name: ")
+  (angular-generate "interface" name))
 
-  (defun angular-generate-library(name)
-    "Generate a new library project in the current workspace called 'NAME'."
-    (interactive "sLibrary name: ")
-    (angular-generate name "library"))
+(defun angular-generate-library(name)
+  "Generate a new library project in the current workspace called 'NAME'."
+  (interactive "sLibrary name: ")
+  (angular-generate "library" name))
 
-  (defun angular-generate-module(name)
-    "Generate a new NgModule definition in the project called 'NAME'."
-    (interactive "sModule name: ")
-    (angular-generate name "module"))
+(defun angular-generate-module(name)
+  "Generate a new NgModule definition in the project called 'NAME'."
+  (interactive "sModule name: ")
+  (angular-generate "module" name))
 
-  (defun angular-generate-pipe(name)
-    "Generate a new pipe definition in the project called 'NAME'."
-    (interactive "sPipe name: ")
-    (angular-generate name "pipe"))
+(defun angular-generate-pipe(name)
+  "Generate a new pipe definition in the project called 'NAME'."
+  (interactive "sPipe name: ")
+  (angular-generate "pipe" name))
 
-  (defun angular-generate-resolver(name)
-    "Generate a new resolver definition in the project called 'NAME'."
-    (interactive "sResolver name: ")
-    (angular-generate name "resolver"))
+(defun angular-generate-resolver(name)
+  "Generate a new resolver definition in the project called 'NAME'."
+  (interactive "sResolver name: ")
+  (angular-generate "resolver" name))
 
-  (defun angular-generate-service(name)
-    "Generate a new service definition in the project called 'NAME'."
-    (interactive "sService name: ")
-    (angular-generate name "service"))
+(defun angular-generate-service(name)
+  "Generate a new service definition in the project called 'NAME'."
+  (interactive "sService name: ")
+  (angular-generate "service" name))
 
-  (defun angular-generate-service-worker()
-    "Pass this schematic to the run command to create a service worker."
-    (interactive)
-    (angular-generate "" "service-worker"))
+(defun angular-generate-service-worker()
+  "Pass this schematic to the run command to create a service worker."
+  (interactive)
+  (angular-generate "service-worker" ""))
 
-  (defun angular-generate-web-worker(name)
-    "Generate a new web worker definition in the project called 'NAME'."
-    (interactive "sWeb worker name: ")
-    (angular-generate name "web-worker"))
+(defun angular-generate-web-worker(name)
+  "Generate a new web worker definition in the project called 'NAME'."
+  (interactive "sWeb worker name: ")
+  (angular-generate "web-worker" name))
 
-  (provide 'angular-mode)
+(provide 'angular-mode)
 ;;; angular-mode.el ends here
