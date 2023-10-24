@@ -143,7 +143,7 @@
 (defun angular-open-file (schematic)
   "Open an Angular 'SCHEMATIC' in the project."
   (interactive)
-  (let ((project-root (find-angular-project-root))
+  (let ((project-root (file-name-as-directory (expand-file-name "src" (find-angular-project-root))))
         (schematic-length (length schematic))
         (schematics '()))
     (when project-root
@@ -151,10 +151,8 @@
         (let* ((relative-path (file-relative-name dir project-root))
                (schematic-name (if (string-suffix-p (format ".%s.ts" schematic) relative-path)
                                    (substring relative-path 0 (- (length relative-path) (+ schematic-length 4)))
-                                 relative-path))
-               (dir-parts (split-string relative-path "/")))
-          (unless (member "node_modules" dir-parts) ; Check for the "node_modules" directory
-            (push schematic-name schematics))))
+                                 relative-path)))
+          (push schematic-name schematics)))
       (if schematics
           (let ((selected-schematic (completing-read (format "Select %s: " schematic) schematics)))
             (let ((schematic-file (concat project-root selected-schematic (format ".%s.ts" schematic))))
@@ -162,6 +160,7 @@
                   (find-file schematic-file)
                 (message "%s file not found: %s" schematic schematic-file))))
         (message "No Angular %ss found in the project." schematic)))))
+
 
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."
