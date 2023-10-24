@@ -5,7 +5,16 @@
 ;;
 ;; Keybindings:
 ;;   - C-c a g: Generate an Angular schematic.
-;;   - C-c a c: Open the project's angular.json file.
+;;   - C-c a p: Open the project's angular.json file.
+;;   - C-c a o c: Open a component.ts file.
+;;   - C-c a o d: Open a directive.ts file.
+;;   - C-c a o g: Open a guard.ts file.
+;;   - C-c a o i: Open a interceptor.ts file.
+;;   - C-c a o m: Open a module.ts file.
+;;   - C-c a o p: Open a pipe.ts file.
+;;   - C-c a o r: Open a resolver.ts file.
+;;   - C-c a o s: Open a service.ts file.
+;;   - C-c a o w: Open a worker.ts file.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -174,13 +183,13 @@
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
             (define-key map (kbd "C-c a o c") 'angular-open-component)
-            (define-key map (kbd "C-c a o s") 'angular-open-service)
-            (define-key map (kbd "C-c a o m") 'angular-open-module)
             (define-key map (kbd "C-c a o d") 'angular-open-directive)
             (define-key map (kbd "C-c a o g") 'angular-open-guard)
             (define-key map (kbd "C-c a o i") 'angular-open-interceptor)
+            (define-key map (kbd "C-c a o m") 'angular-open-module)
             (define-key map (kbd "C-c a o p") 'angular-open-pipe)
             (define-key map (kbd "C-c a o r") 'angular-open-resolver)
+            (define-key map (kbd "C-c a o s") 'angular-open-service)
             (define-key map (kbd "C-c a o w") 'angular-open-web-worker)
             map))
 
