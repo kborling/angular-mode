@@ -32,6 +32,10 @@ Using the `C-c a g` command, you can perform the following:
 - Specify a name for the selected schematic.
 - Pick a destination directory for the generated schematic.
 
+### Quick Open Schematics
+
+Angular Mode offers convenient shortcuts to quickly open schematic files for various Angular schematic types by using the `C-c a o` prefix. See the list of corresponding [keybindings](#keybindings).
+
 ## Installation
 
 You can install `angular-mode` manually or via a package manager.
