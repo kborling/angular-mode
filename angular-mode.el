@@ -151,8 +151,10 @@
         (let* ((relative-path (file-relative-name dir project-root))
                (schematic-name (if (string-suffix-p (format ".%s.ts" schematic) relative-path)
                                    (substring relative-path 0 (- (length relative-path) (+ schematic-length 4)))
-                                 relative-path)))
-          (push schematic-name schematics)))
+                                 relative-path))
+               (dir-parts (split-string relative-path "/")))
+          (unless (member "node_modules" dir-parts) ; Check for the "node_modules" directory
+            (push schematic-name schematics))))
       (if schematics
           (let ((selected-schematic (completing-read (format "Select %s: " schematic) schematics)))
             (let ((schematic-file (concat project-root selected-schematic (format ".%s.ts" schematic))))
