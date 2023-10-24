@@ -86,6 +86,72 @@
     (setq directory (concat directory name))
     (shell-command (format "%s generate %s %s " angular-cli-executable schematic directory))))
 
+(defun angular-open-component ()
+  "Open an Angular component file in the project."
+  (interactive)
+  (angular-open-file "component"))
+
+(defun angular-open-service ()
+  "Open an Angular service file in the project."
+  (interactive)
+  (angular-open-file "service"))
+
+(defun angular-open-module ()
+  "Open an Angular module file in the project."
+  (interactive)
+  (angular-open-file "module"))
+
+(defun angular-open-directive ()
+  "Open an Angular directive file in the project."
+  (interactive)
+  (angular-open-file "directive"))
+
+(defun angular-open-guard ()
+  "Open an Angular guard file in the project."
+  (interactive)
+  (angular-open-file "guard"))
+
+(defun angular-open-interceptor ()
+  "Open an Angular interceptor file in the project."
+  (interactive)
+  (angular-open-file "interceptor"))
+
+(defun angular-open-pipe ()
+  "Open an Angular pipe file in the project."
+  (interactive)
+  (angular-open-file "pipe"))
+
+(defun angular-open-resolver ()
+  "Open an Angular resolver file in the project."
+  (interactive)
+  (angular-open-file "resolver"))
+
+(defun angular-open-web-worker ()
+  "Open an Angular web-worker file in the project."
+  (interactive)
+  (angular-open-file "worker"))
+
+(defun angular-open-file (schematic)
+  "Open an Angular 'SCHEMATIC' in the project."
+  (interactive)
+  (let ((project-root (find-angular-project-root))
+        (schematic-length (length schematic))
+        (schematics '()))
+    (when project-root
+      (dolist (dir (directory-files-recursively project-root (format ".+\\.%s\\.ts$" schematic)))
+        (let* ((relative-path (file-relative-name dir project-root))
+               (schematic-name (if (string-suffix-p (format ".%s.ts" schematic) relative-path)
+                                   (substring relative-path 0 (- (length relative-path) (+ schematic-length 4)))
+                                 relative-path)))
+          (push schematic-name schematics)))
+      (if schematics
+          (let ((selected-schematic (completing-read (format "Select %s: " schematic) schematics)))
+            (let ((schematic-file (concat project-root selected-schematic (format ".%s.ts" schematic))))
+              (if (file-exists-p schematic-file)
+                  (find-file schematic-file)
+                (message "%s file not found: %s" schematic schematic-file))))
+        (message "No Angular %ss found in the project." schematic)))))
+
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."
   (let ((current-dir (file-name-directory (or buffer-file-name default-directory)))
@@ -106,7 +172,16 @@
   :lighter " Angular"
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c a g") 'angular-generate)
-            (define-key map (kbd "C-c a c") 'angular-project-config)
+            (define-key map (kbd "C-c a p") 'angular-project-config)
+            (define-key map (kbd "C-c a o c") 'angular-open-component)
+            (define-key map (kbd "C-c a o s") 'angular-open-service)
+            (define-key map (kbd "C-c a o m") 'angular-open-module)
+            (define-key map (kbd "C-c a o d") 'angular-open-directive)
+            (define-key map (kbd "C-c a o g") 'angular-open-guard)
+            (define-key map (kbd "C-c a o i") 'angular-open-interceptor)
+            (define-key map (kbd "C-c a o p") 'angular-open-pipe)
+            (define-key map (kbd "C-c a o r") 'angular-open-resolver)
+            (define-key map (kbd "C-c a o w") 'angular-open-web-worker)
             map))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
