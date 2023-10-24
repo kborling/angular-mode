@@ -1,6 +1,6 @@
 # Angular Mode
 
-Angular Mode offers an interactive API for Angular CLI commands through a dedicated keymap.
+Angular Mode enhances your workflow by providing an interactive API for Angular CLI commands and allows you to quickly open schematic files such as components, services, and more through a dedicated keymap.
 
 ## Keybindings
 
