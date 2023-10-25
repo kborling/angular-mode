@@ -8,6 +8,7 @@
 ;;   - C-c a p: Open the project's angular.json file.
 ;;   - C-c a o c: Open a component.ts file.
 ;;   - C-c a o t: Open a component.html file.
+;;   - C-c a o t: Open a component.(scss|sass|less|css) file.
 ;;   - C-c a o d: Open a directive.ts file.
 ;;   - C-c a o g: Open a guard.ts file.
 ;;   - C-c a o i: Open a interceptor.ts file.
@@ -106,6 +107,11 @@
   (interactive)
   (angular-open-file "component" "html"))
 
+(defun angular-open-component-stylesheet ()
+  "Open an Angular stylesheet file in the project."
+  (interactive)
+  (angular-open-file "component" "\\(scss\\|less\\|sass\\|css\\)"))
+
 (defun angular-open-service ()
   "Open an Angular service file in the project."
   (interactive)
@@ -190,6 +196,7 @@
             (define-key map (kbd "C-c a p") 'angular-project-config)
             (define-key map (kbd "C-c a o c") 'angular-open-component)
             (define-key map (kbd "C-c a o t") 'angular-open-component-template)
+            (define-key map (kbd "C-c a o v") 'angular-open-component-stylesheet)
             (define-key map (kbd "C-c a o d") 'angular-open-directive)
             (define-key map (kbd "C-c a o g") 'angular-open-guard)
             (define-key map (kbd "C-c a o i") 'angular-open-interceptor)

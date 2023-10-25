@@ -4,20 +4,21 @@ Angular Mode enhances your workflow by providing an interactive API for Angular 
 
 ## Keybindings
 
-| Keybinding  | Command Description                     | Command                           |
-|-------------|-----------------------------------------|-----------------------------------|
-| `C-c a g`   | Generate an Angular Schematic.          | `angular-generate`                |
-| `C-c a p`   | Open the project's `angular.json` file. | `angular-project-config`          |
-| `C-c a o c` | Open a `component.ts` file.             | `angular-open-component`          |
-| `C-c a o t` | Open a `component.html` file.           | `angular-open-component-template` |
-| `C-c a o d` | Open a `directive.ts` file.             | `angular-open-directive`          |
-| `C-c a o g` | Open a `guard.ts` file.                 | `angular-open-guard`              |
-| `C-c a o i` | Open a `interceptor.ts` file.           | `angular-open-interceptor`        |
-| `C-c a o m` | Open a `module.ts` file.                | `angular-open-module`             |
-| `C-c a o p` | Open a `pipe.ts` file.                  | `angular-open-pipe`               |
-| `C-c a o r` | Open a `resolver.ts` file.              | `angular-open-resolver`           |
-| `C-c a o s` | Open a `service.ts` file.               | `angular-open-service`            |
-| `C-c a o w` | Open a `worker.ts` file.                | `angular-open-web-worker`         |
+| Keybinding  | Command Description                              | Command                             |
+|-------------|--------------------------------------------------|-------------------------------------|
+| `C-c a g`   | Generate an Angular Schematic.                   | `angular-generate`                  |
+| `C-c a p`   | Open the project's `angular.json` file.          | `angular-project-config`            |
+| `C-c a o c` | Open a `component.ts` file.                      | `angular-open-component`            |
+| `C-c a o t` | Open a `component.html` file.                    | `angular-open-component-template`   |
+| `C-c a o v` | Open a `component.(scss\|sass\|less\|css)` file. | `angular-open-component-stylesheet` |
+| `C-c a o d` | Open a `directive.ts` file.                      | `angular-open-directive`            |
+| `C-c a o g` | Open a `guard.ts` file.                          | `angular-open-guard`                |
+| `C-c a o i` | Open a `interceptor.ts` file.                    | `angular-open-interceptor`          |
+| `C-c a o m` | Open a `module.ts` file.                         | `angular-open-module`               |
+| `C-c a o p` | Open a `pipe.ts` file.                           | `angular-open-pipe`                 |
+| `C-c a o r` | Open a `resolver.ts` file.                       | `angular-open-resolver`             |
+| `C-c a o s` | Open a `service.ts` file.                        | `angular-open-service`              |
+| `C-c a o w` | Open a `worker.ts` file.                         | `angular-open-web-worker`           |
 
 **Note**: At the moment, Angular Mode only supports the `generate` commands.
 
