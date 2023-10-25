@@ -7,6 +7,7 @@
 ;;   - C-c a g: Generate an Angular schematic.
 ;;   - C-c a p: Open the project's angular.json file.
 ;;   - C-c a o c: Open a component.ts file.
+;;   - C-c a o t: Open a component.html file.
 ;;   - C-c a o d: Open a directive.ts file.
 ;;   - C-c a o g: Open a guard.ts file.
 ;;   - C-c a o i: Open a interceptor.ts file.
@@ -100,6 +101,11 @@
   (interactive)
   (angular-open-file "component"))
 
+(defun angular-open-component-template ()
+  "Open an Angular component template file in the project."
+  (interactive)
+  (angular-open-file "component" "html"))
+
 (defun angular-open-service ()
   "Open an Angular service file in the project."
   (interactive)
@@ -140,27 +146,26 @@
   (interactive)
   (angular-open-file "worker"))
 
-(defun angular-open-file (schematic)
-  "Open an Angular 'SCHEMATIC' in the project."
-  (interactive)
+(defun angular-open-file (schematic &optional file-type)
+  "Open an Angular 'SCHEMATIC' with optional 'FILE-TYPE' in the project."
   (let ((project-root (file-name-as-directory (expand-file-name "src" (find-angular-project-root))))
         (schematic-length (length schematic))
         (schematics '()))
     (when project-root
-      (dolist (dir (directory-files-recursively project-root (format ".+\\.%s\\.ts$" schematic)))
+      (or file-type (setq file-type "ts"))
+      (dolist (dir (directory-files-recursively project-root (format ".+\\.%s\\.%s$" schematic file-type)))
         (let* ((relative-path (file-relative-name dir project-root))
-               (schematic-name (if (string-suffix-p (format ".%s.ts" schematic) relative-path)
-                                   (substring relative-path 0 (- (length relative-path) (+ schematic-length 4)))
+               (schematic-name (if (string-suffix-p (format ".%s.%s" schematic file-type) relative-path)
+                                   (substring relative-path 0 (- (length relative-path) (+ schematic-length (+ (length file-type) 2))))
                                  relative-path)))
           (push schematic-name schematics)))
       (if schematics
           (let ((selected-schematic (completing-read (format "Select %s: " schematic) schematics)))
-            (let ((schematic-file (concat project-root selected-schematic (format ".%s.ts" schematic))))
+            (let ((schematic-file (concat project-root selected-schematic (format ".%s.%s" schematic file-type))))
               (if (file-exists-p schematic-file)
                   (find-file schematic-file)
                 (message "%s file not found: %s" schematic schematic-file))))
         (message "No Angular %ss found in the project." schematic)))))
-
 
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."
@@ -184,6 +189,7 @@
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
             (define-key map (kbd "C-c a o c") 'angular-open-component)
+            (define-key map (kbd "C-c a o t") 'angular-open-component-template)
             (define-key map (kbd "C-c a o d") 'angular-open-directive)
             (define-key map (kbd "C-c a o g") 'angular-open-guard)
             (define-key map (kbd "C-c a o i") 'angular-open-interceptor)
