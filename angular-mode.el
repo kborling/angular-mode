@@ -9,6 +9,7 @@
 ;;   - C-c a o c: Open a component.ts file.
 ;;   - C-c a o t: Open a component.html file.
 ;;   - C-c a o t: Open a component.(scss|sass|less|css) file.
+;;   - C-c a o x: Open a component.spec.ts file.
 ;;   - C-c a o d: Open a directive.ts file.
 ;;   - C-c a o g: Open a guard.ts file.
 ;;   - C-c a o i: Open a interceptor.ts file.
@@ -17,6 +18,10 @@
 ;;   - C-c a o r: Open a resolver.ts file.
 ;;   - C-c a o s: Open a service.ts file.
 ;;   - C-c a o w: Open a worker.ts file.
+;;   - C-c a j c: Jump to the corresponding component.ts file.
+;;   - C-c a j t: Jump to the corresponding component.html file.
+;;   - C-c a j t: Jump to the corresponding component.(scss|sass|less|css) file.
+;;   - C-c a j x: Jump to the corresponding component.spec.ts file.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -112,6 +117,11 @@
   (interactive)
   (angular-open-file "component" "\\(scss\\|less\\|sass\\|css\\)"))
 
+(defun angular-open-component-test ()
+  "Open an Angular component test file in the project."
+  (interactive)
+  (angular-open-file "component.spec"))
+
 (defun angular-open-service ()
   "Open an Angular service file in the project."
   (interactive)
@@ -152,6 +162,26 @@
   (interactive)
   (angular-open-file "worker"))
 
+(defun angular-jump-to-component ()
+  "Jump to the corresponding component file in the project."
+  (interactive)
+  (angular-jump-to-file "component"))
+
+(defun angular-jump-to-template ()
+  "Jump to the corresponding template file in the project."
+  (interactive)
+  (angular-jump-to-file "template"))
+
+(defun angular-jump-to-stylesheet ()
+  "Jump to the corresponding stylesheet file in the project."
+  (interactive)
+  (angular-jump-to-file "stylesheet"))
+
+(defun angular-jump-to-test ()
+  "Jump to the corresponding test file in the project."
+  (interactive)
+  (angular-jump-to-file "test"))
+
 (defun angular-open-file (schematic &optional file-type)
   "Open an Angular 'SCHEMATIC' with optional 'FILE-TYPE' in the project."
   (let ((project-root (file-name-as-directory (expand-file-name "src" (find-angular-project-root))))
@@ -160,18 +190,39 @@
     (when project-root
       (or file-type (setq file-type "ts"))
       (dolist (dir (directory-files-recursively project-root (format ".+\\.%s\\.%s$" schematic file-type)))
-        (let* ((relative-path (file-relative-name dir project-root))
-               (schematic-name (if (string-suffix-p (format ".%s.%s" schematic file-type) relative-path)
-                                   (substring relative-path 0 (- (length relative-path) (+ schematic-length (+ (length file-type) 2))))
-                                 relative-path)))
-          (push schematic-name schematics)))
+        (let* ((relative-path (file-relative-name dir project-root)))
+          (push relative-path schematics)))
       (if schematics
           (let ((selected-schematic (completing-read (format "Select %s: " schematic) schematics)))
-            (let ((schematic-file (concat project-root selected-schematic (format ".%s.%s" schematic file-type))))
+            (let ((schematic-file (concat project-root selected-schematic)))
               (if (file-exists-p schematic-file)
                   (find-file schematic-file)
                 (message "%s file not found: %s" schematic schematic-file))))
         (message "No Angular %ss found in the project." schematic)))))
+
+(defun angular-jump-to-file (file-type)
+  "Jump to the corresponding 'FILE-TYPE' in the same directory."
+  (let ((current-file (buffer-file-name)))
+    (when current-file
+      (let* ((file-name (if (string-suffix-p (format ".spec.ts") current-file)
+                            (file-name-sans-extension (file-name-sans-extension (file-name-nondirectory current-file)))
+                          (file-name-sans-extension (file-name-nondirectory current-file))))
+             (dir-name (file-name-directory current-file))
+             (extensions (pcase file-type
+                           ("template" '("html"))
+                           ("component" '("ts"))
+                           ("test" '("spec.ts"))
+                           ("stylesheet" '("scss" "sass" "less" "css"))))
+             (corresponding-file
+              (catch 'found
+                (dolist (ext extensions)
+                  (let ((file-path (format "%s%s.%s" dir-name file-name ext)))
+                    (when (file-exists-p file-path)
+                      (throw 'found file-path))))))
+             (corresponding-file-exists (file-exists-p corresponding-file)))
+        (if corresponding-file-exists
+            (find-file corresponding-file)
+          (message "Corresponding %s file not found: %s" file-type corresponding-file))))))
 
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."
@@ -195,6 +246,7 @@
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
             (define-key map (kbd "C-c a o c") 'angular-open-component)
+            (define-key map (kbd "C-c a o x") 'angular-open-component-test)
             (define-key map (kbd "C-c a o t") 'angular-open-component-template)
             (define-key map (kbd "C-c a o v") 'angular-open-component-stylesheet)
             (define-key map (kbd "C-c a o d") 'angular-open-directive)
@@ -205,6 +257,10 @@
             (define-key map (kbd "C-c a o r") 'angular-open-resolver)
             (define-key map (kbd "C-c a o s") 'angular-open-service)
             (define-key map (kbd "C-c a o w") 'angular-open-web-worker)
+            (define-key map (kbd "C-c a j c") 'angular-jump-to-component)
+            (define-key map (kbd "C-c a j t") 'angular-jump-to-template)
+            (define-key map (kbd "C-c a j v") 'angular-jump-to-stylesheet)
+            (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
             map))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
