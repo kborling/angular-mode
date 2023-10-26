@@ -1,6 +1,6 @@
 # Angular Mode
 
-Angular Mode enhances your workflow by providing an interactive API for Angular CLI commands and allows you to quickly open schematic files such as components, services, and more through a dedicated keymap.
+Angular Mode enhances your workflow by providing an interactive API for Angular CLI commands and allows you to quickly open schematic files such as components, services, and more through a dedicated keymap. Additionally, you can conveniently jump between corresponding component files, such as templates, components, tests, and stylesheets.
 
 ## Keybindings
 
@@ -41,7 +41,16 @@ Using the `C-c a g` command, you can perform the following:
 
 ### Quick Open Schematics
 
-Angular Mode offers convenient shortcuts to quickly open schematic files for various Angular schematic types by using the `C-c a o` prefix. See the list of corresponding [keybindings](#keybindings).
+Angular Mode offers convenient shortcuts to quickly open files for various Angular schematics by using the `C-c a o` prefix. This will provide a filtered list of files based on the schematic type. See the list of corresponding [keybindings](#keybindings).
+
+### Jump Between Corresponding Files
+
+Angular Mode provides an easy way to help you navigate between corresponding Angular files with ease. Whether you're working with components, services, or other Angular schematics, you can quickly switch between the following file types:
+
+- **Template (HTML)**: Jump to the associated HTML template file.
+- **Component (TS)**: Navigate to the TypeScript file of your Angular component.
+- **Test (Spec.ts)**: Open the test file associated with your component.
+- **Stylesheet (SCSS, Less, Sass, CSS)**: Jump to the corresponding stylesheet file (SCSS, Less, Sass, or CSS).
 
 ## Installation
 
