@@ -18,10 +18,10 @@
 ;;   - C-c a o r: Open a resolver.ts file.
 ;;   - C-c a o s: Open a service.ts file.
 ;;   - C-c a o w: Open a worker.ts file.
-;;   - C-c a j c: Jump to the corresponding component.ts file.
-;;   - C-c a j t: Jump to the corresponding component.html file.
-;;   - C-c a j t: Jump to the corresponding component.(scss|sass|less|css) file.
-;;   - C-c a j x: Jump to the corresponding component.spec.ts file.
+;;   - C-c a j c: Jump to the associated component.ts file.
+;;   - C-c a j t: Jump to the associated component.html file.
+;;   - C-c a j t: Jump to the associated component.(scss|sass|less|css) file.
+;;   - C-c a j x: Jump to the associated component.spec.ts file.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -163,22 +163,22 @@
   (angular-open-file "worker"))
 
 (defun angular-jump-to-component ()
-  "Jump to the corresponding component file in the project."
+  "Jump to the associated component file in the project."
   (interactive)
   (angular-jump-to-file "component"))
 
 (defun angular-jump-to-template ()
-  "Jump to the corresponding template file in the project."
+  "Jump to the associated template file in the project."
   (interactive)
   (angular-jump-to-file "template"))
 
 (defun angular-jump-to-stylesheet ()
-  "Jump to the corresponding stylesheet file in the project."
+  "Jump to the associated stylesheet file in the project."
   (interactive)
   (angular-jump-to-file "stylesheet"))
 
 (defun angular-jump-to-test ()
-  "Jump to the corresponding test file in the project."
+  "Jump to the associated test file in the project."
   (interactive)
   (angular-jump-to-file "test"))
 
@@ -201,7 +201,7 @@
         (message "No Angular %ss found in the project." schematic)))))
 
 (defun angular-jump-to-file (file-type)
-  "Jump to the corresponding 'FILE-TYPE' in the same directory."
+  "Jump to the associated 'FILE-TYPE' in the same directory."
   (let ((current-file (buffer-file-name)))
     (when current-file
       (let* ((file-name (if (string-suffix-p (format ".spec.ts") current-file)
@@ -213,16 +213,21 @@
                            ("component" '("ts"))
                            ("test" '("spec.ts"))
                            ("stylesheet" '("scss" "sass" "less" "css"))))
-             (corresponding-file
-              (catch 'found
-                (dolist (ext extensions)
-                  (let ((file-path (format "%s%s.%s" dir-name file-name ext)))
-                    (when (file-exists-p file-path)
-                      (throw 'found file-path))))))
-             (corresponding-file-exists (file-exists-p corresponding-file)))
-        (if corresponding-file-exists
-            (find-file corresponding-file)
-          (message "Corresponding %s file not found: %s" file-type corresponding-file))))))
+             (associated-file nil))
+
+        ;; Find the first matching file extension
+        (catch 'found
+          (dolist (ext extensions)
+            (let ((file-path (format "%s%s.%s" dir-name file-name ext)))
+              (when (file-exists-p file-path)
+                (setq associated-file file-path)
+                (throw 'found associated-file)))))
+
+        (if associated-file
+            (find-file associated-file)
+          (message "Associated %s file not found" file-type))
+        ))))
+
 
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."

@@ -45,12 +45,12 @@ Angular Mode offers convenient shortcuts to quickly open files for various Angul
 
 ### Jump Between Corresponding Files
 
-Angular Mode provides an easy way to help you navigate between corresponding Angular files with ease. Whether you're working with components, services, or other Angular schematics, you can quickly switch between the following file types:
+Angular Mode provides an easy way to help you jump between associated Angular files with ease. Whether you're working with components, services, or other Angular schematics, you can quickly switch between the following file types:
 
-- **Template (HTML)**: Jump to the associated HTML template file.
-- **Component (TS)**: Navigate to the TypeScript file of your Angular component.
-- **Test (Spec.ts)**: Open the test file associated with your component.
-- **Stylesheet (SCSS, Less, Sass, CSS)**: Jump to the corresponding stylesheet file (SCSS, Less, Sass, or CSS).
+- **Template**: Jump to the associated `.html` file.
+- **Component**: Jump to the associated `.ts` file.
+- **Test**: Jump to the associated `.spec.ts` file.
+- **Stylesheet**: Jump to the associated `.scss`, `.less`, `.sass`, or `.css` file
 
 ## Installation
 
