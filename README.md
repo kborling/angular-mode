@@ -7,9 +7,6 @@ Angular Mode enhances your workflow by providing an interactive API for Angular 
 | Keybinding  | Command Description                                                  | Command                             |
 |-------------|----------------------------------------------------------------------|-------------------------------------|
 | `C-c a g`   | Generate an Angular Schematic.                                       | `angular-generate`                  |
-| `C-c a p`   | Open the project's `angular.json` file.                              | `angular-project-config`            |
-| `C-c a h d` | Lookup current word at point in API reference documentation website. | `angular-lookup-word`               |
-| `C-c a h s` | Perform a search of angular.io using the current word at point.      | `angular-search-word`               |
 | `C-c a o c` | Open a `component.ts` file.                                          | `angular-open-component`            |
 | `C-c a o t` | Open a `component.html` file.                                        | `angular-open-component-template`   |
 | `C-c a o v` | Open a `component.(scss\|sass\|less\|css)` file.                     | `angular-open-component-stylesheet` |
@@ -26,6 +23,9 @@ Angular Mode enhances your workflow by providing an interactive API for Angular 
 | `C-c a j t` | Jump to corresponding `component.html` file.                         | `angular-jump-to-template`          |
 | `C-c a j v` | Jump to corresponding `component.(scss\|sass\|less\|css)` file.      | `angular-jump-to-stylesheet`        |
 | `C-c a j x` | Jump to corresponding `component.spec.ts` file.                      | `angular-jump-to-test`              |
+| `C-c a p`   | Open the project's `angular.json` file.                              | `angular-project-config`            |
+| `C-c a h d` | Lookup current word at point in API reference documentation website. | `angular-lookup-word`               |
+| `C-c a h s` | Perform a search of angular.io using the current word at point.      | `angular-search-word`               |
 
 **Note**: At the moment, Angular Mode only supports the `generate` commands.
 
