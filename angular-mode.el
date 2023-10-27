@@ -6,6 +6,8 @@
 ;; Keybindings:
 ;;   - C-c a g: Generate an Angular schematic.
 ;;   - C-c a p: Open the project's angular.json file.
+;;   - C-c a h d: Lookup current word at point in API reference documentation website.
+;;   - C-c a h s: Perform a search of angular.io using the current word at point.
 ;;   - C-c a o c: Open a component.ts file.
 ;;   - C-c a o t: Open a component.html file.
 ;;   - C-c a o t: Open a component.(scss|sass|less|css) file.
@@ -182,6 +184,25 @@
   (interactive)
   (angular-jump-to-file "test"))
 
+(defun angular-lookup-word ()
+  "Lookup the current word at point in API reference documentation."
+  (interactive)
+  (angular-docs))
+
+(defun angular-search-word ()
+  "Perform a search of angular.io using the current word at point."
+  (interactive)
+  (angular-docs 'true))
+
+(defun angular-docs (&optional search)
+  "Lookup the current word at point in API reference documentation.
+Optionally 'SEARCH' the angular.io website."
+  (or (setq search 'false))
+  (let ((word (current-word)))
+    (if word
+        (shell-command (format "%s d %s --search=%s" angular-cli-executable word search))
+      word)))
+
 (defun angular-open-file (schematic &optional file-type)
   "Open an Angular 'SCHEMATIC' with optional 'FILE-TYPE' in the project."
   (let ((project-root (file-name-as-directory (expand-file-name "src" (find-angular-project-root))))
@@ -250,6 +271,8 @@
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
+            (define-key map (kbd "C-c a h d") 'angular-lookup-word)
+            (define-key map (kbd "C-c a h s") 'angular-search-word)
             (define-key map (kbd "C-c a o c") 'angular-open-component)
             (define-key map (kbd "C-c a o x") 'angular-open-component-test)
             (define-key map (kbd "C-c a o t") 'angular-open-component-template)
