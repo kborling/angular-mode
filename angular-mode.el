@@ -187,21 +187,23 @@
 (defun angular-lookup-word ()
   "Lookup the current word at point in API reference documentation."
   (interactive)
-  (angular-docs))
+  (angular-docs nil))
 
 (defun angular-search-word ()
   "Perform a search of angular.io using the current word at point."
   (interactive)
-  (angular-docs 'true))
+  (angular-docs t))
 
-(defun angular-docs (&optional search)
+(defun angular-docs (search)
   "Lookup the current word at point in API reference documentation.
-Optionally 'SEARCH' the angular.io website."
-  (or (setq search 'false))
+Optionally SEARCH the angular.io website."
   (let ((word (current-word)))
     (if word
-        (shell-command (format "%s d %s --search=%s" angular-cli-executable word search))
-      word)))
+        (shell-command (format "%s d %s --search=%s"
+                               angular-cli-executable
+                               word
+                               (if search "true" "false")))
+      (message "No word at point."))))
 
 (defun angular-open-file (schematic &optional file-type)
   "Open an Angular 'SCHEMATIC' with optional 'FILE-TYPE' in the project."
