@@ -78,6 +78,7 @@
 ;; Enjoy working with Angular in Emacs!
 ;;
 ;;; Code:
+(require 'dired)
 
 (defgroup angular-mode nil
   "Angular mode, a minor mode for interacting with the Angular CLI."
@@ -251,6 +252,39 @@ Optionally SEARCH the angular.io website."
           (message "Associated %s file not found" file-type))
         ))))
 
+(defun angular-update-import-paths (old-path new-path)
+  "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
+  (let* ((project-root (find-angular-project-root))
+         (app-directory (expand-file-name "src/app" project-root))
+        (old-relative-path (file-relative-name old-path project-root))
+        (new-relative-path (file-relative-name new-path project-root)))
+    (message app-directory)
+    (dolist (ts-file (directory-files-recursively app-directory "\\.ts$"))
+      (with-temp-buffer
+        (insert-file-contents ts-file)
+        (goto-char (point-min))
+        (let ((old-relative-path (file-relative-name old-path (file-name-directory ts-file)))
+              (new-relative-path (file-relative-name new-path (file-name-directory ts-file))))
+          (while (search-forward old-relative-path nil t)
+           (replace-match new-relative-path)))
+        (when (buffer-modified-p)
+          (write-region (point-min) (point-max) ts-file))))))
+
+(defun angular-refactor-move-component (current-path destination)
+  "Move Angular component from CURRENT-PATH to DESTINATION, updating import paths."
+  (interactive (list (read-file-name "Current component path: ")
+                     (read-directory-name "New component directory: ")))
+  (let* ((current-dir (directory-file-name (file-name-directory current-path)))
+         (component-name (file-name-nondirectory (directory-file-name current-dir)))
+         (new-dir (expand-file-name component-name destination)))
+    (when (file-directory-p new-dir)
+      (error "Destination already has a directory named '%s'" component-name))
+   (unless (file-directory-p destination)
+     (make-directory destination :parents))
+   ;; TODO: Try to use 'rename-file' instead of 'dired-rename-file'.
+    (dired-rename-file current-dir new-dir t)
+    (angular-update-import-paths current-dir new-dir)
+    (find-file new-dir)))
 
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."
@@ -291,6 +325,7 @@ Optionally SEARCH the angular.io website."
             (define-key map (kbd "C-c a j t") 'angular-jump-to-template)
             (define-key map (kbd "C-c a j v") 'angular-jump-to-stylesheet)
             (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
+            (define-key map (kbd "C-c a r m") 'angular-refactor-move-component)
             map))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
