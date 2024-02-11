@@ -89,7 +89,7 @@
     "ng")
   "Path to the Angular CLI executable.")
 
-(defcustom angular-import-path-style 'relative
+(defcustom angular-import-path-style 'absolute
   "Determines the style of import paths in Angular projects.
 Choose \\'absolute for absolute paths or \\'relative for relative paths."
   :type '(choice (const :tag "Absolute" absolute)
@@ -261,23 +261,14 @@ Optionally SEARCH the angular.io website."
 (defun angular-update-import-paths (old-path new-path)
   "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
   (let* ((project-root (find-angular-project-root))
-         ;; TODO Ignore node_modules instead of using 'src/app'
+         ;; TODO Consider ignoring certain directories (ex. node_modules)  instead of using 'src/app'
          (app-directory (expand-file-name "src/app" project-root))
          (file-name (file-name-nondirectory old-path))
          (search (expand-file-name old-path project-root))
-         (dir (file-name-nondirectory
-               (directory-file-name
-                (file-name-directory
-                 search))))
-         ;; (replace (concat (expand-file-name new-path project-root) file-name))
          (replace (expand-file-name new-path project-root))
          (import-regex "import\\s-+{.*?}\\s-+from\\s-+\\(['\\\"]\\)\\(.*?\\)\\1"))
 
-    (message "Dir: %s" dir)
-    (message "File: %s" file-name)
-
     (dolist (ts-file (directory-files-recursively app-directory "\\.ts$"))
-      ;; (message "File: %s" ts-file)
       (with-temp-buffer
         ;; Insert file contents into temp buffer
         (insert-file-contents ts-file)
@@ -286,24 +277,28 @@ Optionally SEARCH the angular.io website."
 
         (let ((original-contents (buffer-string))
               (file-path (file-name-directory ts-file)))
-          ;; Search through each import statement
+
+          ;; Search through each import statement and replace path
           (while (re-search-forward import-regex nil t)
             (let ((match (match-string 2))) ; The matched import path
-              (unless (string-prefix-p "@" match)
+              (unless (string-prefix-p "@" match) ; TODO Add support for custom modules in future
                 (let ((expanded-match (expand-file-name match file-path)))
                   (when (string-prefix-p search expanded-match)
                     (let* ((remainder (substring expanded-match (length search)))
-                           (absolute-replacement-path (concat (directory-file-name replace) remainder))
-                           (relative-replacement-path (file-relative-name absolute-replacement-path file-path)))
-                      ;; Check if the path does not start with "../" or "./" and prepend "./"
-                      (unless (or (string-prefix-p "../" relative-replacement-path)
-                                  (string-prefix-p "./" relative-replacement-path))
-                        (setq relative-replacement-path (concat "./" relative-replacement-path)))
+                           (final-replacement-path (cond
+                                                    ((eq angular-import-path-style 'absolute)
+                                                     (file-relative-name (concat (directory-file-name replace) remainder) project-root))
+                                                    ((eq angular-import-path-style 'relative)
+                                                     (let ((relative-path (file-relative-name (concat (directory-file-name replace) remainder) file-path)))
+                                                     ;; Ensure relative paths start with "./" if they don't already
+                                                     (if (or (string-prefix-p "./" relative-path) (string-prefix-p "../" relative-path))
+                                                         relative-path
+                                                       (concat "./" relative-path)))))))
                       ;; Replace the matched text with the new relative path
-                      (replace-match (format "\"%s\"" relative-replacement-path) nil nil nil 2)))))
+                      (replace-match final-replacement-path nil nil nil 2)))))))
 
           (when (not (equal (buffer-string) original-contents))
-            (write-region (point-min) (point-max) ts-file)))))))))
+            (write-region (point-min) (point-max) ts-file)))))))
 
 (defun angular-refactor-move-component (current-path destination)
   "Move Angular component from CURRENT-PATH to DESTINATION, updating import paths."
@@ -316,10 +311,7 @@ Optionally SEARCH the angular.io website."
       (error "Destination already has a directory named '%s'" component-name))
     (unless (file-directory-p destination)
       (make-directory destination :parents))
-    ;; (rename-file current-dir new-dir t)
-    (message "Curr: %s" current-dir)
-    (message "New: %s" new-dir)
-    (message "Component Name: %s" component-name)
+    ;; (rename-file current-dir new-dir t) ; Uncomment after testing
     (angular-update-import-paths current-dir new-dir)
     ;; (find-file new-dir)
     ))
