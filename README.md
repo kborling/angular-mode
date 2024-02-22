@@ -24,7 +24,7 @@ Angular Mode enhances your workflow by providing an interactive API for Angular 
 | `C-c a j v` | Jump to corresponding `component.(scss\|sass\|less\|css)` file.                                      | `angular-jump-to-stylesheet`        |
 | `C-c a j x` | Jump to corresponding `component.spec.ts` file.                                                      | `angular-jump-to-test`              |
 | `C-c a m d` | Move a directory to a new destination and update import paths for all entities within the directory. | `angular-move-directory`            |
-| `C-c a m e` | Move an file and associated spec file to a new destination and update import paths for those files.  | `angular-move-file`                 |
+| `C-c a m f` | Move an file and associated spec file to a new destination and update import paths for those files.  | `angular-move-file`                 |
 | `C-c a p`   | Open the project's `angular.json` file.                                                              | `angular-project-config`            |
 | `C-c a h d` | Lookup current word at point in API reference documentation website.                                 | `angular-lookup-word`               |
 | `C-c a h s` | Perform a search of angular.io using the current word at point.                                      | `angular-search-word`               |
