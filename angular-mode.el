@@ -24,6 +24,8 @@
 ;;   - C-c a j t: Jump to the associated component.html file.
 ;;   - C-c a j t: Jump to the associated component.(scss|sass|less|css) file.
 ;;   - C-c a j x: Jump to the associated component.spec.ts file.
+;;   - C-c a r d: Move a directory to a new destination and update import paths for all entities within the directory.
+;;   - C-c a r e: Move an entity and associated spec file to a new destination and update import paths for those files.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
