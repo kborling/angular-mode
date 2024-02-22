@@ -49,7 +49,7 @@ Angular Mode offers convenient shortcuts to quickly open files for various Angul
 
 ### Jump Between Corresponding Files
 
-Angular Mode provides an easy way to help you jump between associated Angular files with ease. Whether you're working with components, services, or other Angular schematics, you can quickly switch between the following file types:
+Angular Mode provides an easy way to help you jump between associated Angular files with ease. Whether you're working with components, services, resolvers, etc., you can quickly switch between the following file types:
 
 - **Template**: Jump to the associated `.html` file - `C-c a o t`
 - **Component**: Jump to the associated `.ts` file - `C-c a o c`
@@ -60,7 +60,7 @@ Angular Mode provides an easy way to help you jump between associated Angular fi
 
 Tired of manually updating import paths when moving files around and wasting a bunch of time? Me too!
 
-Now you can do it in seconds by using `M-x angular-refactor-move-directory` to move an entire directory of angular files or `M-x angular-refactor-move-entity` to move a specific file (and associated spec file if it exists) to the destination of your choosing.
+Now you can do it in seconds by using `M-x angular-refactor-move-directory` (`C-c a r d`) to move an entire directory of angular files or `M-x angular-refactor-move-entity` (`C-c a r e`) to move a specific file (and associated spec file if it exists) to the destination of your choosing.
 
 Upon move, every import path that references the moved files will automatically update to the new path. If you have a preference on using `relative` vs. `absolute`, you can customize `angular-import-path-style` (defaults to `relative`) by using the customize interface or by adding this to your config:
 
@@ -68,9 +68,7 @@ Upon move, every import path that references the moved files will automatically 
 (setopt angular-import-path-style 'absolute)
 ```
 
-Simply `C-c a r d` `C-c a r e` to
-
-**Note**: The refactor move functions do not support custom modules. I will look into adding support for this.
+**Note**: The refactor move functions do not support custom modules. This means any import path that references a custom module will not be updated.
 
 ## Installation
 
