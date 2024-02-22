@@ -24,6 +24,8 @@
 ;;   - C-c a j t: Jump to the associated component.html file.
 ;;   - C-c a j t: Jump to the associated component.(scss|sass|less|css) file.
 ;;   - C-c a j x: Jump to the associated component.spec.ts file.
+;;   - C-c a r d: Move a directory to a new destination and update import paths for all entities within the directory.
+;;   - C-c a r e: Move an entity and associated spec file to a new destination and update import paths for those files.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -88,6 +90,13 @@
       "npx ng"
     "ng")
   "Path to the Angular CLI executable.")
+
+(defcustom angular-import-path-style 'relative
+  "Determines the style of import paths in Angular projects.
+Choose \\'absolute for absolute paths or \\'relative for relative paths."
+  :type '(choice (const :tag "Absolute" absolute)
+                 (const :tag "Relative" relative))
+  :group 'angular-customizations)
 
 (defun angular-generate (schematic name)
   "Generate an Angular 'SCHEMATIC' called 'NAME' in the directory of choice."
@@ -251,6 +260,129 @@ Optionally SEARCH the angular.io website."
           (message "Associated %s file not found" file-type))
         ))))
 
+(defun angular-update-import-paths (old-path new-path)
+  "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
+  (let* ((project-root (find-angular-project-root))
+         (app-directory (expand-file-name "src/app" project-root))
+         (file-name (file-name-nondirectory old-path))
+         (search (expand-file-name old-path project-root))
+         (replace (expand-file-name new-path project-root))
+         (import-regex "import\\s-+{.*?}\\s-+from\\s-+\\(['\\\"]\\)\\(.*?\\)\\1"))
+
+    (dolist (ts-file (directory-files-recursively app-directory "\\.ts$"))
+      (with-temp-buffer
+        ;; Insert file contents into temp buffer
+        (insert-file-contents ts-file)
+        ;; Go to the beginning of the file
+        (goto-char (point-min))
+
+        (let ((original-contents (buffer-string))
+              (file-path (file-name-directory ts-file)))
+          ;; Search through each import statement and replace path
+          (while (re-search-forward import-regex nil t)
+            (let ((match (match-string 2))) ; The matched import path
+              (unless (string-prefix-p "@" match) ; TODO Add support for custom modules in future
+                (let ((expanded-match
+                       ;; If the current 'file-path' ends in src/app/
+                       ;; and import begins with src/app, use 'project-root' as base expansion instead of 'file-path'
+                       (if (and (string-match-p "src/app" match) (string-match-p "src/app/$" file-path))
+                           (expand-file-name match project-root)
+                         (expand-file-name match file-path))))
+                  (when (string-prefix-p search expanded-match)
+                    (let* ((remainder (substring expanded-match (length search)))
+                           (final-replacement-path
+                            (cond
+                             ((eq angular-import-path-style 'absolute)
+                              (file-relative-name (concat (directory-file-name replace) remainder) project-root))
+                             ((eq angular-import-path-style 'relative)
+                              (let ((relative-path (file-relative-name
+                                                    (concat (directory-file-name replace) remainder) file-path)))
+                                ;; Ensure relative paths start with "./" if they don't already
+                                (if (or (string-prefix-p "./" relative-path) (string-prefix-p "../" relative-path))
+                                    relative-path
+                                  (concat "./" relative-path)))))))
+                      ;; Replace the matched text with the new path
+                      (replace-match final-replacement-path nil nil nil 2)))))))
+
+          (when (not (equal (buffer-string) original-contents))
+            (write-region (point-min) (point-max) ts-file)))))))
+
+;;(defalias 'angular-refactor-move-component 'angular-refactor-move-directory)
+
+(defun angular-refactor-move-directory (current-directory destination)
+  "Move Angular component from 'CURRENT-DIRECTORY' to 'DESTINATION'.
+Update all import paths in files that reference the component."
+  (interactive (list (read-directory-name "Current directory: ")
+                     (read-directory-name "New directory: ")))
+  (let* ((current-dir (expand-file-name (directory-file-name (file-name-directory current-directory))))
+         (current-dir-name (file-name-nondirectory current-dir))
+         (new-dir (file-name-concat (expand-file-name (file-name-directory destination)) current-dir-name)))
+    (when (file-directory-p new-dir)
+      (error "Destination already has a directory named '%s'" new-dir))
+    (unless (file-directory-p destination)
+      (make-directory destination :parents))
+    (rename-file current-dir new-dir t)
+    (angular-update-import-paths current-dir new-dir)
+    ))
+
+(defun angular-refactor-move-entity (current-path destination)
+  "Move Angular entity and associated spec file \\
+from 'CURRENT-PATH' to 'DESTINATION'.
+Update all import paths in files that reference the entity."
+
+  (interactive (list (read-file-name "Select entity: ")
+                     (read-directory-name "New directory: ")))
+
+  (let* ((is-spec-file (string-suffix-p (format ".spec.ts") current-path))
+         (base-name (file-name-sans-extension (file-name-nondirectory current-path)))
+         (base-path (file-name-directory current-path))
+         (current-dir (directory-file-name base-path))
+         (file-name (if is-spec-file
+                        (file-name-sans-extension (file-name-sans-extension (file-name-nondirectory current-path)))
+                      (file-name-sans-extension (file-name-nondirectory current-path))))
+         (spec-file-exists (or is-spec-file (file-exists-p (expand-file-name (concat base-name ".spec.ts") current-dir))))
+
+         (component-name (file-name-nondirectory (directory-file-name current-dir)))
+         (new-dir (expand-file-name component-name destination))
+
+         (full-name (file-name-nondirectory current-path))
+
+         (file-name-ext (if is-spec-file
+                            (concat file-name ".ts")
+                          full-name))
+         (old-base-path (expand-file-name file-name-ext base-path))
+         (new-base-path (expand-file-name file-name-ext destination))
+
+         (spec-name-ext (if is-spec-file
+                            full-name
+                          (concat base-name ".spec.ts")))
+
+         (old-spec-path (expand-file-name spec-name-ext base-path))
+         (new-spec-path (expand-file-name spec-name-ext destination))) ;; end let
+
+    (when (file-in-directory-p file-name-ext new-dir)
+      (error "Destination already has a file named '%s'" file-name-ext))
+
+    (when (and spec-file-exists (file-in-directory-p spec-name-ext new-dir))
+      (error "Destination already has a spec file named '%s'" file-name-ext))
+
+    ;; Create destination directory if it doesn't exist
+    (unless (file-directory-p destination)
+      (make-directory destination :parents))
+
+    ;; (unless is-spec-file
+    (rename-file old-base-path new-base-path t)
+
+    ;; Move the associated spec file if it exists
+    (when (or is-spec-file spec-file-exists)
+      (rename-file old-spec-path new-spec-path t))
+
+    ;; Update import paths for entity file
+    (angular-update-import-paths (file-name-sans-extension old-base-path) (file-name-sans-extension new-base-path))
+
+    ;; Update import paths for spec file
+    (when (or is-spec-file spec-file-exists)
+      (angular-update-import-paths (file-name-sans-extension old-spec-path) (file-name-sans-extension new-spec-path)))))
 
 (defun find-angular-project-root ()
   "Find the root directory of an Angular project."
@@ -291,6 +423,8 @@ Optionally SEARCH the angular.io website."
             (define-key map (kbd "C-c a j t") 'angular-jump-to-template)
             (define-key map (kbd "C-c a j v") 'angular-jump-to-stylesheet)
             (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
+            (define-key map (kbd "C-c a r d") 'angular-refactor-move-directory)
+            (define-key map (kbd "C-c a r e") 'angular-refactor-move-entity)
             map))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
