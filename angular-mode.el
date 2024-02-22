@@ -24,8 +24,8 @@
 ;;   - C-c a j t: Jump to the associated component.html file.
 ;;   - C-c a j t: Jump to the associated component.(scss|sass|less|css) file.
 ;;   - C-c a j x: Jump to the associated component.spec.ts file.
-;;   - C-c a r d: Move a directory to a new destination and update import paths for all entities within the directory.
-;;   - C-c a r e: Move an entity and associated spec file to a new destination and update import paths for those files.
+;;   - C-c a m d: Move a directory to a new destination and update import paths for all entities within the directory.
+;;   - C-c a m f: Move a file and associated spec file to a new destination and update import paths for those files.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -307,9 +307,7 @@ Optionally SEARCH the angular.io website."
           (when (not (equal (buffer-string) original-contents))
             (write-region (point-min) (point-max) ts-file)))))))
 
-;;(defalias 'angular-refactor-move-component 'angular-refactor-move-directory)
-
-(defun angular-refactor-move-directory (current-directory destination)
+(defun angular-move-directory (current-directory destination)
   "Move Angular component from 'CURRENT-DIRECTORY' to 'DESTINATION'.
 Update all import paths in files that reference the component."
   (interactive (list (read-directory-name "Current directory: ")
@@ -325,8 +323,8 @@ Update all import paths in files that reference the component."
     (angular-update-import-paths current-dir new-dir)
     ))
 
-(defun angular-refactor-move-entity (current-path destination)
-  "Move Angular entity and associated spec file \\
+(defun angular-move-file (current-path destination)
+  "Move Angular file and associated spec file \\
 from 'CURRENT-PATH' to 'DESTINATION'.
 Update all import paths in files that reference the entity."
 
@@ -423,8 +421,8 @@ Update all import paths in files that reference the entity."
             (define-key map (kbd "C-c a j t") 'angular-jump-to-template)
             (define-key map (kbd "C-c a j v") 'angular-jump-to-stylesheet)
             (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
-            (define-key map (kbd "C-c a r d") 'angular-refactor-move-directory)
-            (define-key map (kbd "C-c a r e") 'angular-refactor-move-entity)
+            (define-key map (kbd "C-c a m d") 'angular-move-directory)
+            (define-key map (kbd "C-c a m f") 'angular-move-file)
             map))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
