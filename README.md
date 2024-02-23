@@ -4,30 +4,30 @@ Angular Mode enhances your workflow by providing an interactive API for Angular 
 
 ## Keybindings
 
-| Keybinding  | Command Description                                                                                  | Command                             |
-|-------------|------------------------------------------------------------------------------------------------------|-------------------------------------|
-| `C-c a g`   | Generate an Angular Schematic.                                                                       | `angular-generate`                  |
-| `C-c a o c` | Open a `component.ts` file.                                                                          | `angular-open-component`            |
-| `C-c a o t` | Open a `component.html` file.                                                                        | `angular-open-component-template`   |
-| `C-c a o v` | Open a `component.(scss\|sass\|less\|css)` file.                                                     | `angular-open-component-stylesheet` |
-| `C-c a o x` | Open a `component.spec.ts` file.                                                                     | `angular-open-component-test`       |
-| `C-c a o d` | Open a `directive.ts` file.                                                                          | `angular-open-directive`            |
-| `C-c a o g` | Open a `guard.ts` file.                                                                              | `angular-open-guard`                |
-| `C-c a o i` | Open a `interceptor.ts` file.                                                                        | `angular-open-interceptor`          |
-| `C-c a o m` | Open a `module.ts` file.                                                                             | `angular-open-module`               |
-| `C-c a o p` | Open a `pipe.ts` file.                                                                               | `angular-open-pipe`                 |
-| `C-c a o r` | Open a `resolver.ts` file.                                                                           | `angular-open-resolver`             |
-| `C-c a o s` | Open a `service.ts` file.                                                                            | `angular-open-service`              |
-| `C-c a o w` | Open a `worker.ts` file.                                                                             | `angular-open-web-worker`           |
-| `C-c a j c` | Jump to corresponding `component.ts` file.                                                           | `angular-jump-to-component`         |
-| `C-c a j t` | Jump to corresponding `component.html` file.                                                         | `angular-jump-to-template`          |
-| `C-c a j v` | Jump to corresponding `component.(scss\|sass\|less\|css)` file.                                      | `angular-jump-to-stylesheet`        |
-| `C-c a j x` | Jump to corresponding `component.spec.ts` file.                                                      | `angular-jump-to-test`              |
-| `C-c a m d` | Move a directory to a new destination and update import paths for all entities within the directory. | `angular-move-directory`            |
-| `C-c a m f` | Move an file and associated spec file to a new destination and update import paths for those files.  | `angular-move-file`                 |
-| `C-c a p`   | Open the project's `angular.json` file.                                                              | `angular-project-config`            |
-| `C-c a h d` | Lookup current word at point in API reference documentation website.                                 | `angular-lookup-word`               |
-| `C-c a h s` | Perform a search of angular.io using the current word at point.                                      | `angular-search-word`               |
+| Keybinding  | Command Description                                                                                   | Command                             |
+|-------------|-------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `C-c a g`   | Generate an Angular Schematic.                                                                        | `angular-generate`                  |
+| `C-c a o c` | Open a `component.ts` file.                                                                           | `angular-open-component`            |
+| `C-c a o t` | Open a `component.html` file.                                                                         | `angular-open-component-template`   |
+| `C-c a o v` | Open a `component.(scss\|sass\|less\|css)` file.                                                      | `angular-open-component-stylesheet` |
+| `C-c a o x` | Open a `component.spec.ts` file.                                                                      | `angular-open-component-test`       |
+| `C-c a o d` | Open a `directive.ts` file.                                                                           | `angular-open-directive`            |
+| `C-c a o g` | Open a `guard.ts` file.                                                                               | `angular-open-guard`                |
+| `C-c a o i` | Open a `interceptor.ts` file.                                                                         | `angular-open-interceptor`          |
+| `C-c a o m` | Open a `module.ts` file.                                                                              | `angular-open-module`               |
+| `C-c a o p` | Open a `pipe.ts` file.                                                                                | `angular-open-pipe`                 |
+| `C-c a o r` | Open a `resolver.ts` file.                                                                            | `angular-open-resolver`             |
+| `C-c a o s` | Open a `service.ts` file.                                                                             | `angular-open-service`              |
+| `C-c a o w` | Open a `worker.ts` file.                                                                              | `angular-open-web-worker`           |
+| `C-c a j c` | Jump to associated `component.ts` file.                                                            | `angular-jump-to-component`         |
+| `C-c a j t` | Jump to associated `component.html` file.                                                          | `angular-jump-to-template`          |
+| `C-c a j v` | Jump to associated `component.(scss\|sass\|less\|css)` file.                                       | `angular-jump-to-stylesheet`        |
+| `C-c a j x` | Jump to associated `component.spec.ts` file.                                                       | `angular-jump-to-test`              |
+| `C-c a m d` | Move a directory to a new destination and update import paths for all entities within the directory.  | `angular-move-directory`            |
+| `C-c a m f` | Move a file and associated spec file to a new destination and update import paths for those files. | `angular-move-file`                 |
+| `C-c a p`   | Open the project's `angular.json` file.                                                               | `angular-project-config`            |
+| `C-c a h d` | Lookup current word at point in API reference documentation website.                                  | `angular-lookup-word`               |
+| `C-c a h s` | Perform a search of angular.io using the current word at point.                                       | `angular-search-word`               |
 
 **Note**: At the moment, Angular Mode only supports the `generate` commands.
 
