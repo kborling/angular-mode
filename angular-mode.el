@@ -22,7 +22,7 @@
 ;;   - C-c a o w: Open a worker.ts file.
 ;;   - C-c a j c: Jump to the associated component.ts file.
 ;;   - C-c a j t: Jump to the associated component.html file.
-;;   - C-c a j t: Jump to the associated component.(scss|sass|less|css) file.
+;;   - C-c a j v: Jump to the associated component.(scss|sass|less|css) file.
 ;;   - C-c a j x: Jump to the associated component.spec.ts file.
 ;;   - C-c a m d: Move a directory to a new destination and update import paths for all entities within the directory.
 ;;   - C-c a m f: Move a file and associated spec file to a new destination and update import paths for those files.
@@ -80,6 +80,8 @@
 ;; Enjoy working with Angular in Emacs!
 ;;
 ;;; Code:
+
+(require 'xref)
 
 (defgroup angular-mode nil
   "Angular mode, a minor mode for interacting with the Angular CLI."
@@ -396,10 +398,68 @@ Update all import paths in files that reference the entity."
         (find-file (expand-file-name "angular.json" project-root))
       (message "Not inside an Angular project with an angular.json file."))))
 
+(defun angular-xref-backend ()
+  "Define the xref backend for Angular."
+  'angular)
+
+(cl-defmethod xref-backend-definitions ((backend (eql angular)) identifier)
+  "Find the definitions of the IDENTIFIER using the Angular BACKEND."
+  (let* ((selector (angular-extract-selector identifier))
+         (component-file (when selector
+                           (angular-find-component-file-by-selector selector))))
+    (if component-file
+        (list (xref-make selector (xref-make-file-location component-file 1 0)))
+      (user-error "Component definition not found for selector: %s" selector))))
+
+(defun angular-thing-at-point ()
+  "Get the full Angular component tag at point, including hyphens."
+  (let ((start (save-excursion
+                 (while (and (not (bobp))
+                             (looking-back "[a-z0-9-]" 1))
+                   (backward-char))
+                 (point)))
+        (end (save-excursion
+               (while (and (not (eobp))
+                           (looking-at "[a-z0-9-]"))
+                 (forward-char))
+               (point))))
+    (buffer-substring-no-properties start end)))
+
+(defun angular-extract-selector (tag)
+  "Extract the Angular component selector from TAG."
+  (when (string-match "\\([[:alnum:]-]+\\)" tag)
+    (match-string 1 tag)))
+
+(defun angular-find-component-file-by-selector (selector)
+  "Find the Angular component file that has the given SELECTOR."
+  (let ((project-root (find-angular-project-root)))
+    (when project-root
+      (angular-search-component-file project-root selector))))
+
+(defun angular-search-component-file (directory selector)
+  "Search for the Angular component file with SELECTOR in DIRECTORY."
+  (let ((stack (list directory))
+        (component-file nil))
+    (while (and stack (not component-file))
+      (let ((current-dir (pop stack)))
+        (dolist (file (directory-files current-dir t))
+          (cond
+           ((and (file-directory-p file)
+                 (not (member (file-name-nondirectory file) '("." ".." "node_modules" ".git"))))
+            (push file stack))
+           ((and (file-regular-p file)
+                 (string-match "component.ts$" file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (goto-char (point-min))
+              (when (re-search-forward (format "selector:\\s-*['\"]%s['\"]" selector) nil t)
+                (setq component-file file))))))))
+    component-file))
+
 ;;;###autoload
 (define-minor-mode angular-mode
   "Minor mode for working with Angular CLI."
-  :lighter " Angular"
+  :lighter "Angular"
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
@@ -423,7 +483,9 @@ Update all import paths in files that reference the entity."
             (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
             (define-key map (kbd "C-c a m d") 'angular-move-directory)
             (define-key map (kbd "C-c a m f") 'angular-move-file)
-            map))
+            map)
+
+  (add-hook 'xref-backend-functions #'angular-xref-backend nil t))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
   (lambda () (angular-mode 1)))
