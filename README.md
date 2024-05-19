@@ -120,7 +120,7 @@ You can install angular-mode using popular package managers such as Straight and
 ### Elpaca
 ```elisp
 (use-package angular-mode
-  :elpaca (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
+  :ensure (angular-mode :host github :repo "kborling/angular-mode" :files ("*.el")))
 ```
 
 ### Doom Emacs
