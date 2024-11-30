@@ -35,7 +35,7 @@
 ;;
 ;; Author: Kevin Borling <kborling@protonmail.com>
 ;; Created: October 16, 2023
-;; Version: 0.0.2
+;; Version: 0.0.3
 ;; Keywords: angular, angular-cli, angular-mode
 ;; License: MIT
 ;; URL: https://github.com/kborling/angular-mode
