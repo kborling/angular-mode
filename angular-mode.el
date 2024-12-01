@@ -459,7 +459,7 @@ Update all import paths in files that reference the entity."
 ;;;###autoload
 (define-minor-mode angular-mode
   "Minor mode for working with Angular CLI."
-  :lighter "Angular"
+  :lighter " Angular"
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
