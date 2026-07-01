@@ -10,7 +10,7 @@
 ;;   - C-c a h s: Perform a search of angular.io using the current word at point.
 ;;   - C-c a o c: Open a component.ts file.
 ;;   - C-c a o t: Open a component.html file.
-;;   - C-c a o t: Open a component.(scss|sass|less|css) file.
+;;   - C-c a o v: Open a component.(scss|sass|less|css) file.
 ;;   - C-c a o x: Open a component.spec.ts file.
 ;;   - C-c a o d: Open a directive.ts file.
 ;;   - C-c a o g: Open a guard.ts file.
@@ -85,17 +85,23 @@
 ;;
 ;;; Code:
 
+(require 'cl-lib)
 (require 'xref)
 
 (defgroup angular-mode nil
   "Angular mode, a minor mode for interacting with the Angular CLI."
   :group 'angular-mode)
 
-(defvar angular-cli-executable
-  (if (executable-find "npx")
-      "npx ng"
-    "ng")
-  "Path to the Angular CLI executable.")
+(defcustom angular-cli-executable nil
+  "Path to the Angular CLI executable.
+If nil, auto-detects npx or ng at first use."
+  :type '(choice (const nil) string)
+  :group 'angular-mode)
+
+(defun angular-cli-executable ()
+  "Return the Angular CLI executable."
+  (or angular-cli-executable
+      (if (executable-find "npx") "npx ng" "ng")))
 
 (defcustom angular-import-path-style 'relative
   "Determines the style of import paths in Angular projects.
@@ -107,7 +113,7 @@ Choose \\'absolute for absolute paths or \\'relative for relative paths."
 (defun angular-generate (schematic name)
   "Generate an Angular SCHEMATIC called NAME in the directory of choice."
   (interactive (list (completing-read "Schematic: "
-                                      '("class" "component" "directive" "enum" "guard" "interceptor" "interface" "module" "pipe" "resolver" "service" "web-worker"))
+                                      '("component" "service" "directive" "pipe" "guard" "interceptor" "resolver" "interface" "class" "enum" "library" "environments"))
                      (read-string "Name: ")))
   (let* ((selected-directory (file-name-as-directory (expand-file-name (read-directory-name "Select a directory: "))))
          (current-directory (file-name-directory default-directory))
@@ -117,7 +123,7 @@ Choose \\'absolute for absolute paths or \\'relative for relative paths."
                       (concat (if (not (string-suffix-p "/" relative-path)) "../")
                               relative-path))))
     (setq directory (concat directory name))
-    (shell-command (format "%s generate %s %s " angular-cli-executable schematic directory))))
+    (compile (format "%s generate %s %s" (angular-cli-executable) schematic directory))))
 
 (defun angular-open-component ()
   "Open an Angular component file in the project."
@@ -210,19 +216,18 @@ Choose \\'absolute for absolute paths or \\'relative for relative paths."
   (angular-docs t))
 
 (defun angular-docs (search)
-  "Lookup the current word at point in API reference documentation.
-Optionally SEARCH the angular.io website."
+  "Lookup the current word at point in Angular documentation.
+If SEARCH is non-nil, search angular.dev. Otherwise open API reference."
   (let ((word (current-word)))
     (if word
-        (shell-command (format "%s d %s --search=%s"
-                               angular-cli-executable
-                               word
-                               (if search "true" "false")))
+        (browse-url (if search
+                       (format "https://angular.dev/search?q=%s" word)
+                     (format "https://angular.dev/api/%s" word)))
       (message "No word at point."))))
 
 (defun angular-open-file (schematic &optional file-type)
   "Open an Angular SCHEMATIC with optional FILE-TYPE in the project."
-  (let ((project-root (file-name-as-directory (expand-file-name "src" (find-angular-project-root))))
+  (let ((project-root (file-name-as-directory (expand-file-name "src" (angular-find-project-root))))
         (schematics '()))
     (when project-root
       (or file-type (setq file-type "ts"))
@@ -262,12 +267,11 @@ Optionally SEARCH the angular.io website."
 
         (if associated-file
             (find-file associated-file)
-          (message "Associated %s file not found" file-type))
-        ))))
+          (message "Associated %s file not found" file-type))))))
 
 (defun angular-update-import-paths (old-path new-path)
   "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
-  (let* ((project-root (find-angular-project-root))
+  (let* ((project-root (angular-find-project-root))
          (app-directory (expand-file-name "src/app" project-root))
          (search (expand-file-name old-path project-root))
          (replace (expand-file-name new-path project-root))
@@ -324,8 +328,7 @@ Update all import paths in files that reference the component."
     (unless (file-directory-p destination)
       (make-directory destination :parents))
     (rename-file current-dir new-dir t)
-    (angular-update-import-paths current-dir new-dir)
-    ))
+    (angular-update-import-paths current-dir new-dir)))
 
 (defun angular-move-file (current-path destination)
   "Move Angular file and associated spec file \\
@@ -386,7 +389,7 @@ Update all import paths in files that reference the entity."
     (when (or is-spec-file spec-file-exists)
       (angular-update-import-paths (file-name-sans-extension old-spec-path) (file-name-sans-extension new-spec-path)))))
 
-(defun find-angular-project-root ()
+(defun angular-find-project-root ()
   "Find the root directory of an Angular project."
   (let ((current-dir (file-name-directory (or buffer-file-name default-directory)))
         (root-file "angular.json"))
@@ -395,7 +398,7 @@ Update all import paths in files that reference the entity."
 (defun angular-project-config ()
   "Open the project's angular.json file."
   (interactive)
-  (let ((project-root (find-angular-project-root)))
+  (let ((project-root (angular-find-project-root)))
     (if project-root
         (find-file (expand-file-name "angular.json" project-root))
       (message "Not inside an Angular project with an angular.json file."))))
@@ -404,7 +407,7 @@ Update all import paths in files that reference the entity."
   "Get the prefix value from the nearest Angular JSON file.
 Searches for angular.json in the project root or parent directories.
 Returns the prefix as a string, or nil if not found."
-  (let* ((project-root (find-angular-project-root))
+  (let* ((project-root (angular-find-project-root))
          (angular-json-path (when project-root
                               (expand-file-name "angular.json" project-root))))
     (if (and angular-json-path (file-exists-p angular-json-path))
@@ -452,29 +455,21 @@ Returns the prefix as a string, or nil if not found."
 
 (defun angular-find-component-file-by-selector (selector)
   "Find the Angular component file that has the given SELECTOR."
-  (let ((project-root (find-angular-project-root)))
+  (let ((project-root (angular-find-project-root)))
     (when project-root
       (angular-search-component-file project-root selector))))
 
 (defun angular-search-component-file (directory selector)
   "Search for the Angular component file with SELECTOR in DIRECTORY."
-  (let ((stack (list directory))
-        (component-file nil))
-    (while (and stack (not component-file))
-      (let ((current-dir (pop stack)))
-        (dolist (file (directory-files current-dir t))
-          (cond
-           ((and (file-directory-p file)
-                 (not (member (file-name-nondirectory file) '("." ".." "node_modules" ".git"))))
-            (push file stack))
-           ((and (file-regular-p file)
-                 (string-match "component.ts$" file))
-            (with-temp-buffer
-              (insert-file-contents file)
-              (goto-char (point-min))
-              (when (re-search-forward (format "selector:\\s-*['\"]%s['\"]" selector) nil t)
-                (setq component-file file))))))))
-    component-file))
+  (let ((files (directory-files-recursively
+                (expand-file-name "src" directory) "\\.component\\.ts$")))
+    (cl-find-if
+     (lambda (file)
+       (with-temp-buffer
+         (insert-file-contents file)
+         (goto-char (point-min))
+         (re-search-forward (format "selector:\\s-*['\"]%s['\"]" selector) nil t)))
+     files)))
 
 (defun angular-rename-component ()
   "Rename an Angular component.
@@ -486,7 +481,7 @@ This updates:
 - The component's file names (kebab-case).
 - All imports and references to the renamed component."
   (interactive)
-  (let* ((project-root (find-angular-project-root))
+  (let* ((project-root (angular-find-project-root))
          (components (angular-list-components project-root))
          (old-name (completing-read "Select component to rename: " components))
          (new-name (read-string "New component name (kebab-case): "))
@@ -533,12 +528,15 @@ This updates:
         (goto-char (point-min))
         (while (re-search-forward "templateUrl:\\s-*['\"]\\(.*?\\)\\.component\\.html['\"]" nil t)
           (replace-match (format "templateUrl: './%s.component.html'" new-name)))
-        ;; Update styleUrls
+        ;; Update styleUrls (Angular < 17) and styleUrl (Angular 17+)
         (goto-char (point-min))
-        (while (re-search-forward "styleUrls:\\s-*\\(\\[.*?['\"]\\)\\(.*?\\)\\.component\\.\\(scss\\|sass\\|less\\|css\\)['\"]\\(.*?\\]\\)" nil t)
+        (while (re-search-forward "styleUrls:\\s-*\\[.*?['\"].*?\\.component\\.\\(scss\\|sass\\|less\\|css\\)['\"].*?\\]" nil t)
           (replace-match (format "styleUrls: ['./%s.component.%s']"
-                                 new-name
-                                 (match-string 3))))
+                                 new-name (match-string 1))))
+        (goto-char (point-min))
+        (while (re-search-forward "styleUrl:\\s-*['\"].*?\\.component\\.\\(scss\\|sass\\|less\\|css\\)['\"]" nil t)
+          (replace-match (format "styleUrl: './%s.component.%s'"
+                                 new-name (match-string 1))))
         ;; Save changes
         (write-region (point-min) (point-max) file)))
 
@@ -555,14 +553,9 @@ This updates:
       (message "%s" (replace-regexp-in-string old-name new-name file))
       (rename-file file (replace-regexp-in-string old-name new-name file)))
 
-    ;; TODO: Fix import update issue
-    ;; Update references to the component in other files
+    ;; Update import references to the component in other files
     (angular-update-import-paths (format "%s.component" old-name)
                                  (format "%s.component" new-name))
-    (angular-update-import-paths (format "%s.component.html" old-name)
-                                 (format "%s.component.html" new-name))
-    (angular-update-import-paths (format "%s.component.scss" old-name)
-                                 (format "%s.component.scss" new-name))
 
     (message "Renamed component '%s' to '%s' successfully." old-name new-name))))
 
