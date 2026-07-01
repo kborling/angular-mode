@@ -24,8 +24,12 @@
 ;;   - C-c a j t: Jump to the associated component.html file.
 ;;   - C-c a j v: Jump to the associated component.(scss|sass|less|css) file.
 ;;   - C-c a j x: Jump to the associated component.spec.ts file.
-;;   - C-c a m d: Move a directory to a new destination and update import paths for all entities within the directory.
-;;   - C-c a m f: Move a file and associated spec file to a new destination and update import paths for those files.
+;;   - C-c a o f: Open an interface.ts file.
+;;   - C-c a c: Insert console.log for expression at point.
+;;   - C-c a d: Remove all console.log statements.
+;;   - C-c a r: Rename a component (files, class, selector, imports).
+;;   - C-c a m d: Move a directory and update import paths.
+;;   - C-c a m f: Move a file and update import paths.
 ;;
 ;; To use this package, activate `angular-mode` and leverage the provided keybindings
 ;; to generate schematics in the project directory of choice.
@@ -35,13 +39,13 @@
 ;;
 ;; Author: Kevin Borling <kborling@protonmail.com>
 ;; Created: October 16, 2023
-;; Version: 0.0.4
+;; Version: 0.1.0
 ;; Keywords: angular, angular-cli, angular-mode
 ;; License: MIT
 ;; URL: https://github.com/kborling/angular-mode
 ;; Homepage: https://github.com/kborling/angular-mode
 ;; Filename: angular-mode.el
-;; Package-Requires: ((emacs "24.1"))
+;; Package-Requires: ((emacs "29.1"))
 ;;
 ;; This file is NOT part of GNU Emacs.
 ;;
@@ -575,6 +579,56 @@ This updates:
   "Convert KEBAB-CASE-NAME to PascalCase format."
   (mapconcat #'capitalize (split-string kebab-case-name "-") ""))
 
+(defun angular-open-interface ()
+  "Open an Angular interface file in the project."
+  (interactive)
+  (angular-open-file "interface"))
+
+;;; Console Log Helpers =====================================================
+
+(defun angular-console-log-thing-at-point ()
+  "Insert a console.log for the expression at point."
+  (interactive)
+  (let ((expr ""))
+    (save-excursion
+      (while (or (looking-back "\\(?:\\sw\\|\\s_\\|\\.\\)" (1- (point)))
+                 (looking-back ")" (1- (point))))
+        (backward-char))
+      (let ((start (point)))
+        (while (looking-at "\\(?:\\sw\\|\\s_\\|\\.\\)+")
+          (forward-sexp))
+        (when (looking-at "(")
+          (forward-sexp))
+        (setq expr (buffer-substring-no-properties start (point)))))
+    (when (not (string-empty-p expr))
+      (save-excursion
+        (end-of-line)
+        (newline-and-indent)
+        (insert (format "console.log('%s', %s);" expr expr))))))
+
+(defun angular-remove-all-console-logs ()
+  "Delete all lines containing console.log(...) in the current buffer."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "\\bconsole\\.log\\s-*(" nil t)
+      (beginning-of-line)
+      (kill-whole-line))))
+
+;;; Angular Template Mode ===================================================
+
+;;;###autoload
+(if (fboundp 'html-ts-mode)
+    (define-derived-mode angular-template-mode html-ts-mode "Angular Template"
+      "Major mode for Angular template files with LSP support.")
+  (define-derived-mode angular-template-mode mhtml-mode "Angular Template"
+    "Major mode for Angular template files with LSP support."))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.component\\.html\\'" . angular-template-mode))
+
+;;; Minor Mode ==============================================================
+
 ;;;###autoload
 (define-minor-mode angular-mode
   "Minor mode for working with Angular CLI."
@@ -600,6 +654,10 @@ This updates:
             (define-key map (kbd "C-c a j t") 'angular-jump-to-template)
             (define-key map (kbd "C-c a j v") 'angular-jump-to-stylesheet)
             (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
+            (define-key map (kbd "C-c a o f") 'angular-open-interface)
+            (define-key map (kbd "C-c a c") 'angular-console-log-thing-at-point)
+            (define-key map (kbd "C-c a d") 'angular-remove-all-console-logs)
+            (define-key map (kbd "C-c a r") 'angular-rename-component)
             (define-key map (kbd "C-c a m d") 'angular-move-directory)
             (define-key map (kbd "C-c a m f") 'angular-move-file)
             map)
