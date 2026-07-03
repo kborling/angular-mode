@@ -523,6 +523,340 @@ For services/pipes/etc, moves .ts and .spec.ts."
   (mapconcat #'capitalize (split-string kebab-case-name "-") ""))
 
 ;;; ============================================================
+;;; Namespace / Barrel Exports
+;;; ============================================================
+
+(defun angular-create-barrel ()
+  "Create or update an index.ts barrel export for a directory.
+Scans for .ts files and exports their public symbols."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (dir (read-directory-name "Create barrel for: "
+                                   (expand-file-name "src/app" root)))
+         (index-file (expand-file-name "index.ts" dir))
+         (ts-files (cl-remove-if
+                    (lambda (f)
+                      (let ((name (file-name-nondirectory f)))
+                        (or (string= name "index.ts")
+                            (string-suffix-p ".spec.ts" name)
+                            (string-suffix-p ".module.ts" name))))
+                    (directory-files dir nil "\\.ts$")))
+         (exports '()))
+    (dolist (file ts-files)
+      (let ((stem (file-name-sans-extension file)))
+        (push (format "export * from './%s';" stem) exports)))
+    (setq exports (sort exports #'string<))
+    (with-temp-file index-file
+      (insert (string-join exports "\n") "\n"))
+    (message "Barrel created: %s (%d exports)" (abbreviate-file-name index-file) (length exports))
+    (find-file index-file)))
+
+(defun angular-create-barrel-recursive ()
+  "Create barrel exports for a directory and all subdirectories.
+Each subdirectory gets its own index.ts, parent re-exports children."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (dir (read-directory-name "Create barrels for: "
+                                   (expand-file-name "src/app" root)))
+         (count 0))
+    (angular--create-barrels-in dir)
+    ;; Count how many index.ts files were created
+    (dolist (f (directory-files-recursively dir "^index\\.ts$"))
+      (cl-incf count))
+    (message "Created %d barrel files under %s" count (abbreviate-file-name dir))))
+
+(defun angular--create-barrels-in (dir)
+  "Recursively create barrel exports in DIR."
+  (let ((subdirs (cl-remove-if-not
+                  #'file-directory-p
+                  (mapcar (lambda (f) (expand-file-name f dir))
+                          (cl-remove-if
+                           (lambda (f) (or (string= f ".") (string= f "..")
+                                           (string-prefix-p "." f)))
+                           (directory-files dir)))))
+        (ts-files (cl-remove-if
+                   (lambda (f)
+                     (let ((name (file-name-nondirectory f)))
+                       (or (string= name "index.ts")
+                           (string-suffix-p ".spec.ts" name))))
+                   (directory-files dir nil "\\.ts$")))
+        (exports '()))
+    ;; Recurse into subdirectories first
+    (dolist (subdir subdirs)
+      (angular--create-barrels-in subdir)
+      ;; Re-export subdirectory if it has an index.ts
+      (when (file-exists-p (expand-file-name "index.ts" subdir))
+        (push (format "export * from './%s';" (file-name-nondirectory subdir))
+              exports)))
+    ;; Export local .ts files
+    (dolist (file ts-files)
+      (push (format "export * from './%s';" (file-name-sans-extension file))
+            exports))
+    ;; Write index.ts if there's anything to export
+    (when exports
+      (let ((index-file (expand-file-name "index.ts" dir)))
+        (with-temp-file index-file
+          (insert (string-join (sort exports #'string<) "\n") "\n"))))))
+
+(defun angular-convert-to-barrel-imports ()
+  "Convert deep imports to barrel imports in the current file.
+Replaces './auth/auth.component' with './auth' when an index.ts exists."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (import-regex "from\\s-+\\(['\"]\\)\\([^'\"]+\\)\\1")
+         (file-dir (file-name-directory (or buffer-file-name default-directory)))
+         (count 0))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward import-regex nil t)
+        (let* ((quote-char (match-string 1))
+               (import-path (match-string 2))
+               (expanded (expand-file-name import-path file-dir))
+               (parent-dir (file-name-directory (concat expanded ".ts"))))
+          (when (and (not (string-prefix-p "@" import-path))
+                     parent-dir
+                     (file-exists-p (expand-file-name "index.ts" parent-dir)))
+            ;; Check if the barrel re-exports what we need
+            (let ((barrel-path (file-relative-name
+                                (directory-file-name parent-dir) file-dir)))
+              (unless (string-prefix-p "." barrel-path)
+                (setq barrel-path (concat "./" barrel-path)))
+              (unless (string= import-path barrel-path)
+                (replace-match (format "from %s%s%s" quote-char barrel-path quote-char))
+                (cl-incf count)))))))
+    (message "Converted %d imports to barrel imports" count)))
+
+(defun angular--read-tsconfig (root)
+  "Read and parse tsconfig.json from ROOT."
+  (let ((file (expand-file-name "tsconfig.json" root)))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (buffer-string)))))
+
+(defun angular-add-path-alias ()
+  "Add a path alias to tsconfig.json (e.g. @shared/* → src/app/shared/*)."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (tsconfig (expand-file-name "tsconfig.json" root))
+         (alias (read-string "Alias (e.g. @shared): " "@"))
+         (target-dir (read-directory-name "Maps to: "
+                                          (expand-file-name "src/app" root)))
+         (relative (file-relative-name target-dir root))
+         (path-value (concat (directory-file-name relative) "/*"))
+         (alias-key (concat alias "/*")))
+    (unless (file-exists-p tsconfig)
+      (user-error "No tsconfig.json found"))
+    (with-current-buffer (find-file-noselect tsconfig)
+      (goto-char (point-min))
+      (if (re-search-forward "\"paths\"\\s-*:\\s-*{" nil t)
+          ;; Add to existing paths
+          (progn
+            (end-of-line)
+            (insert (format "\n      \"%s\": [\"%s\"]," alias-key path-value)))
+        ;; Create paths section inside compilerOptions
+        (goto-char (point-min))
+        (if (re-search-forward "\"compilerOptions\"\\s-*:\\s-*{" nil t)
+            (progn
+              (end-of-line)
+              (insert (format "\n    \"paths\": {\n      \"%s\": [\"%s\"]\n    },"
+                              alias-key path-value)))
+          (user-error "No compilerOptions found in tsconfig.json")))
+      (save-buffer)
+      (message "Added alias %s → %s" alias-key path-value))))
+
+(defun angular-convert-to-alias-imports ()
+  "Convert relative imports to alias imports in the current file.
+Uses path aliases from tsconfig.json."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (aliases (angular--parse-path-aliases root))
+         (file-dir (file-name-directory (or buffer-file-name default-directory)))
+         (import-regex "from\\s-+\\(['\"]\\)\\([^'\"]+\\)\\1")
+         (count 0))
+    (unless aliases
+      (user-error "No path aliases found in tsconfig.json"))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward import-regex nil t)
+        (let* ((quote-char (match-string 1))
+               (import-path (match-string 2)))
+          (when (and (not (string-prefix-p "@" import-path))
+                     (or (string-prefix-p "./" import-path)
+                         (string-prefix-p "../" import-path)))
+            (let* ((expanded (expand-file-name import-path file-dir))
+                   (rel-to-root (file-relative-name expanded root))
+                   (best-alias nil)
+                   (best-remainder nil))
+              ;; Find the best matching alias
+              (dolist (alias aliases)
+                (let ((alias-name (car alias))
+                      (alias-path (cdr alias)))
+                  (when (string-prefix-p alias-path rel-to-root)
+                    (let ((remainder (substring rel-to-root (length alias-path))))
+                      (when (or (null best-alias)
+                                (> (length alias-path) (length (cdr best-alias))))
+                        (setq best-alias (cons alias-name alias-path)
+                              best-remainder remainder))))))
+              (when best-alias
+                (let ((new-import (concat (replace-regexp-in-string "/\\*$" "" (car best-alias))
+                                          "/" (string-remove-prefix "/" best-remainder))))
+                  ;; Remove trailing .ts extension if present
+                  (setq new-import (replace-regexp-in-string "\\.ts$" "" new-import))
+                  (replace-match (format "from %s%s%s" quote-char new-import quote-char))
+                  (cl-incf count))))))))
+    (message "Converted %d imports to alias imports" count)))
+
+(defun angular--parse-path-aliases (root)
+  "Parse path aliases from tsconfig.json in ROOT.
+Returns alist of (alias-pattern . directory-relative-to-root)."
+  (let ((tsconfig (expand-file-name "tsconfig.json" root))
+        (aliases '()))
+    (when (file-exists-p tsconfig)
+      (with-temp-buffer
+        (insert-file-contents tsconfig)
+        (goto-char (point-min))
+        (when (re-search-forward "\"paths\"\\s-*:\\s-*{" nil t)
+          (let ((paths-start (point)))
+            (when (re-search-forward "}" nil t)
+              (let ((paths-text (buffer-substring-no-properties paths-start (point))))
+                (with-temp-buffer
+                  (insert paths-text)
+                  (goto-char (point-min))
+                  (while (re-search-forward
+                          "\"\\([^\"]+\\)\"\\s-*:\\s-*\\[\\s-*\"\\([^\"]+\\)\"" nil t)
+                    (let ((alias (match-string 1))
+                          (path (match-string 2)))
+                      ;; Convert "src/app/shared/*" to "src/app/shared/"
+                      (setq path (replace-regexp-in-string "/\\*$" "/" path))
+                      (push (cons alias path) aliases))))))))))
+    (nreverse aliases)))
+
+(defun angular-create-feature ()
+  "Scaffold a feature namespace directory with barrel export.
+Creates the directory, an index.ts, and optionally generates components."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (name (read-string "Feature name (kebab-case): "))
+         (parent (read-directory-name "Parent directory: "
+                                      (expand-file-name "src/app" root)))
+         (feature-dir (expand-file-name name parent))
+         (generate (y-or-n-p "Generate a component for this feature? ")))
+    (make-directory feature-dir t)
+    ;; Create barrel
+    (with-temp-file (expand-file-name "index.ts" feature-dir)
+      (insert (format "// %s feature\n" name)))
+    ;; Optionally generate component
+    (when generate
+      (compile (format "%s generate component %s/%s --flat"
+                       (angular-cli-executable) name name)))
+    ;; Offer to add path alias
+    (when (y-or-n-p (format "Add @%s path alias? " name))
+      (let ((alias (format "@%s" name))
+            (target (file-relative-name feature-dir root)))
+        (angular-add-path-alias-internal root alias target)))
+    (find-file (expand-file-name "index.ts" feature-dir))
+    (message "Feature '%s' created" name)))
+
+(defun angular-add-path-alias-internal (root alias target-dir)
+  "Add path ALIAS → TARGET-DIR to tsconfig.json in ROOT."
+  (let ((tsconfig (expand-file-name "tsconfig.json" root))
+        (path-value (concat (directory-file-name target-dir) "/*"))
+        (alias-key (concat alias "/*")))
+    (with-current-buffer (find-file-noselect tsconfig)
+      (goto-char (point-min))
+      (if (re-search-forward "\"paths\"\\s-*:\\s-*{" nil t)
+          (progn
+            (end-of-line)
+            (insert (format "\n      \"%s\": [\"%s\"]," alias-key path-value)))
+        (goto-char (point-min))
+        (when (re-search-forward "\"compilerOptions\"\\s-*:\\s-*{" nil t)
+          (end-of-line)
+          (insert (format "\n    \"paths\": {\n      \"%s\": [\"%s\"]\n    },"
+                          alias-key path-value))))
+      (save-buffer))))
+
+;;; ============================================================
+;;; Module → Standalone Migration
+;;; ============================================================
+
+(defun angular-convert-to-standalone ()
+  "Convert a module-based component to standalone.
+Adds standalone: true and imports array to @Component decorator.
+Removes the component from its NgModule declarations."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (components (angular-list-components root))
+         (name (completing-read "Convert to standalone: " components nil t))
+         (files (angular--project-files root
+                  (format "^%s\\.component\\.ts$" (regexp-quote name))))
+         (component-file (car files)))
+    (unless component-file
+      (user-error "Component '%s' not found" name))
+    ;; Add standalone: true to @Component
+    (with-current-buffer (find-file-noselect component-file)
+      (goto-char (point-min))
+      (if (re-search-forward "@Component(\\s-*{" nil t)
+          (let ((decorator-start (point)))
+            ;; Check if already standalone
+            (if (save-excursion
+                  (re-search-forward "standalone\\s-*:" nil t))
+                (message "%s is already standalone" name)
+              ;; Add standalone: true after the opening brace
+              (insert "\n  standalone: true,")
+              ;; Check if imports array exists, add empty one if not
+              (goto-char decorator-start)
+              (unless (save-excursion
+                        (re-search-forward "\\bimports\\s-*:" nil t))
+                (goto-char decorator-start)
+                (insert "\n  imports: [],"))
+              (save-buffer)
+              ;; Remove from module declarations
+              (angular--remove-from-module-declarations root name)
+              (message "Converted '%s' to standalone" name)))
+        (user-error "No @Component decorator found in %s" component-file)))))
+
+(defun angular--remove-from-module-declarations (root component-name)
+  "Remove COMPONENT-NAME from NgModule declarations in ROOT."
+  (let* ((class-name (concat (angular-pascal-case component-name) "Component"))
+         (module-files (angular--project-files root "\\.module\\.ts$"))
+         (removed 0))
+    (dolist (file module-files)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (let ((original (buffer-string)))
+          ;; Remove from declarations array
+          (goto-char (point-min))
+          (while (re-search-forward
+                  (format ",?\\s-*%s\\s-*,?" (regexp-quote class-name)) nil t)
+            ;; Clean up double commas or leading/trailing commas
+            (let ((match-text (match-string 0)))
+              (replace-match
+               (if (and (string-prefix-p "," match-text)
+                        (string-suffix-p "," match-text))
+                   ","
+                 "")))
+            (cl-incf removed))
+          ;; Remove the import statement for this component
+          (goto-char (point-min))
+          (while (re-search-forward
+                  (format "import\\s-+{\\s-*%s\\s-*}\\s-+from\\s-+['\"][^'\"]+['\"];?\n?"
+                          (regexp-quote class-name))
+                  nil t)
+            (replace-match ""))
+          (when (not (equal (buffer-string) original))
+            (write-region (point-min) (point-max) file)))))
+    (when (> removed 0)
+      (message "Removed %s from %d module declaration(s)" class-name removed))))
+
+;;; ============================================================
 ;;; Console Log Helpers
 ;;; ============================================================
 
@@ -585,14 +919,22 @@ For services/pipes/etc, moves .ts and .spec.ts."
       ("o g" "Guard" angular-open-guard)
       ("o m" "Module" angular-open-module)
       ("o f" "Interface" angular-open-interface)]
-     ["Actions"
+     ["Refactor"
       ("g" "Generate" angular-generate)
       ("r" "Rename Component" angular-rename-component)
       ("m d" "Move Directory" angular-move-directory)
       ("m f" "Move File" angular-move-file)
+      ("S" "→ Standalone" angular-convert-to-standalone)
       ("c" "Console.log" angular-console-log-thing-at-point)
       ("d" "Remove Logs" angular-remove-all-console-logs)]
-     ["Project"
+     ["Namespace"
+      ("n f" "New Feature" angular-create-feature)
+      ("n b" "Create Barrel" angular-create-barrel)
+      ("n B" "Create Barrels (recursive)" angular-create-barrel-recursive)
+      ("n i" "→ Barrel Imports" angular-convert-to-barrel-imports)
+      ("n a" "Add Path Alias" angular-add-path-alias)
+      ("n @" "→ Alias Imports" angular-convert-to-alias-imports)
+      ""
       ("p" "angular.json" angular-project-config)
       ("h d" "API Docs" angular-lookup-word)
       ("h s" "Search Docs" angular-search-word)]])
@@ -649,6 +991,13 @@ For services/pipes/etc, moves .ts and .spec.ts."
             (define-key map (kbd "C-c a r") 'angular-rename-component)
             (define-key map (kbd "C-c a m d") 'angular-move-directory)
             (define-key map (kbd "C-c a m f") 'angular-move-file)
+            (define-key map (kbd "C-c a S") 'angular-convert-to-standalone)
+            (define-key map (kbd "C-c a n f") 'angular-create-feature)
+            (define-key map (kbd "C-c a n b") 'angular-create-barrel)
+            (define-key map (kbd "C-c a n B") 'angular-create-barrel-recursive)
+            (define-key map (kbd "C-c a n i") 'angular-convert-to-barrel-imports)
+            (define-key map (kbd "C-c a n a") 'angular-add-path-alias)
+            (define-key map (kbd "C-c a n @") 'angular-convert-to-alias-imports)
             map)
   (when angular-mode
     (add-hook 'xref-backend-functions #'angular-xref-backend nil t)))
