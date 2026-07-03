@@ -1004,6 +1004,41 @@ Removes the component from its NgModule declarations."
   (angular-menu))
 
 ;;; ============================================================
+;;; Eglot / LSP Integration
+;;; ============================================================
+
+(defvar angular--lsp-configured nil
+  "Non-nil if Angular Language Server has been configured for eglot.")
+
+(defun angular-setup-lsp ()
+  "Configure Angular Language Server for eglot.
+Finds ngserver via npm global prefix. Safe to call multiple times."
+  (interactive)
+  (unless angular--lsp-configured
+    (setq angular--lsp-configured t)
+    (when (and (fboundp 'eglot-ensure)
+               (executable-find "npm"))
+      (let* ((global-prefix (string-trim
+                             (shell-command-to-string "npm config get --global prefix")))
+             (modules-path (if (eq system-type 'windows-nt)
+                               "node_modules"
+                             "lib/node_modules"))
+             (node-modules-path (expand-file-name modules-path global-prefix))
+             (ts-path (concat node-modules-path "/typescript/lib"))
+             (ng-path (concat node-modules-path "/@angular/language-server/bin")))
+        (when (and (file-directory-p ts-path) (file-directory-p ng-path))
+          (with-eval-after-load 'eglot
+            (add-to-list 'eglot-server-programs
+                         `(angular-template-mode . ("ngserver"
+                                                    "--stdio"
+                                                    "--tsProbeLocations" ,ts-path
+                                                    "--ngProbeLocations" ,ng-path)))))))))
+
+(add-hook 'angular-template-mode-hook #'angular-setup-lsp)
+(add-hook 'angular-template-mode-hook
+          (lambda () (when (fboundp 'eglot-ensure) (eglot-ensure))))
+
+;;; ============================================================
 ;;; Angular Template Mode
 ;;; ============================================================
 
