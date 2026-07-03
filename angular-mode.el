@@ -1,10 +1,10 @@
 ;;; angular-mode.el --- Emacs Minor Mode for Working with Angular CLI -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2024 Kevin Borling <kborling@protonmail.com>
+;; Copyright (C) 2026 Kevin Borling <kborling@protonmail.com>
 ;;
 ;; Author: Kevin Borling <kborling@protonmail.com>
 ;; Created: October 16, 2023
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Keywords: angular, angular-cli, angular-mode
 ;; License: MIT
 ;; URL: https://github.com/kborling/angular-mode
@@ -101,7 +101,7 @@ If nil, auto-detects npx or ng at first use."
 ;;; ============================================================
 
 (defun angular--project-files (root pattern)
-  "List files matching PATTERN under ROOT/src, using fd if available."
+  "List files matching regex PATTERN under ROOT/src, using fd or find."
   (let ((src-dir (expand-file-name "src" root)))
     (when (file-directory-p src-dir)
       (if (executable-find "fd")
@@ -109,7 +109,7 @@ If nil, auto-detects npx or ng at first use."
             (mapcar (lambda (f) (expand-file-name f src-dir))
                     (split-string
                      (shell-command-to-string
-                      (format "fd --type f %s" (shell-quote-argument pattern)))
+                      (format "fd --type f --regex %s" (shell-quote-argument pattern)))
                      "\n" t)))
         (directory-files-recursively src-dir pattern)))))
 
@@ -615,7 +615,13 @@ Replaces './auth/auth.component' with './auth' when an index.ts exists."
         (let* ((quote-char (match-string 1))
                (import-path (match-string 2))
                (expanded (expand-file-name import-path file-dir))
-               (parent-dir (file-name-directory (concat expanded ".ts"))))
+               ;; Resolve to the directory containing the imported file
+               (parent-dir (cond
+                            ;; If it resolves to a directory with index.ts, that's the barrel
+                            ((file-exists-p (expand-file-name "index.ts" expanded))
+                             nil) ; already a barrel import
+                            ;; Otherwise get the parent directory
+                            ((file-name-directory (concat expanded ".ts"))))))
           (when (and (not (string-prefix-p "@" import-path))
                      parent-dir
                      (file-exists-p (expand-file-name "index.ts" parent-dir)))
@@ -628,14 +634,6 @@ Replaces './auth/auth.component' with './auth' when an index.ts exists."
                 (replace-match (format "from %s%s%s" quote-char barrel-path quote-char))
                 (cl-incf count)))))))
     (message "Converted %d imports to barrel imports" count)))
-
-(defun angular--read-tsconfig (root)
-  "Read and parse tsconfig.json from ROOT."
-  (let ((file (expand-file-name "tsconfig.json" root)))
-    (when (file-exists-p file)
-      (with-temp-buffer
-        (insert-file-contents file)
-        (buffer-string)))))
 
 (defun angular-add-path-alias ()
   "Add a path alias to tsconfig.json (e.g. @shared/* → src/app/shared/*)."
@@ -832,19 +830,24 @@ Removes the component from its NgModule declarations."
       (with-temp-buffer
         (insert-file-contents file)
         (let ((original (buffer-string)))
-          ;; Remove from declarations array
+          ;; Find declarations array and remove the component from it
           (goto-char (point-min))
-          (while (re-search-forward
-                  (format ",?\\s-*%s\\s-*,?" (regexp-quote class-name)) nil t)
-            ;; Clean up double commas or leading/trailing commas
-            (let ((match-text (match-string 0)))
-              (replace-match
-               (if (and (string-prefix-p "," match-text)
-                        (string-suffix-p "," match-text))
-                   ","
-                 "")))
-            (cl-incf removed))
-          ;; Remove the import statement for this component
+          (when (re-search-forward "declarations\\s-*:\\s-*\\[" nil t)
+            (let ((decl-start (point)))
+              (when (re-search-forward "\\]" nil t)
+                (let ((decl-end (point)))
+                  (goto-char decl-start)
+                  (while (re-search-forward
+                          (format ",?\\s-*%s\\s-*,?" (regexp-quote class-name))
+                          decl-end t)
+                    (let ((match-text (match-string 0)))
+                      (replace-match
+                       (if (and (string-prefix-p "," match-text)
+                                (string-suffix-p "," match-text))
+                           ","
+                         "")))
+                    (cl-incf removed))))))
+          ;; Remove the import statement if it only imports this component
           (goto-char (point-min))
           (while (re-search-forward
                   (format "import\\s-+{\\s-*%s\\s-*}\\s-+from\\s-+['\"][^'\"]+['\"];?\n?"
@@ -855,6 +858,60 @@ Removes the component from its NgModule declarations."
             (write-region (point-min) (point-max) file)))))
     (when (> removed 0)
       (message "Removed %s from %d module declaration(s)" class-name removed))))
+
+;;; ============================================================
+;;; CLI Commands
+;;; ============================================================
+
+(defun angular-serve ()
+  "Start the Angular dev server."
+  (interactive)
+  (let ((default-directory (or (angular-find-project-root)
+                               (user-error "Not in an Angular project"))))
+    (compile (format "%s serve" (angular-cli-executable)))))
+
+(defun angular-build ()
+  "Build the Angular project."
+  (interactive)
+  (let ((default-directory (or (angular-find-project-root)
+                               (user-error "Not in an Angular project"))))
+    (compile (format "%s build" (angular-cli-executable)))))
+
+(defun angular-test ()
+  "Run Angular tests."
+  (interactive)
+  (let ((default-directory (or (angular-find-project-root)
+                               (user-error "Not in an Angular project"))))
+    (compile (format "%s test" (angular-cli-executable)))))
+
+(defun angular-lint ()
+  "Run Angular linter."
+  (interactive)
+  (let ((default-directory (or (angular-find-project-root)
+                               (user-error "Not in an Angular project"))))
+    (compile (format "%s lint" (angular-cli-executable)))))
+
+;;; ============================================================
+;;; Route Navigation
+;;; ============================================================
+
+(defun angular-open-routes ()
+  "Open the app routes file."
+  (interactive)
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (candidates (append
+                      (angular--project-files root "app\\.routes\\.ts$")
+                      (angular--project-files root "app-routing\\.module\\.ts$")
+                      (angular--project-files root "routes\\.ts$"))))
+    (if candidates
+        (if (= (length candidates) 1)
+            (find-file (car candidates))
+          (let* ((src (expand-file-name "src" root))
+                 (labels (mapcar (lambda (f) (file-relative-name f src)) candidates))
+                 (choice (completing-read "Routes file: " labels nil t)))
+            (find-file (expand-file-name choice src))))
+      (message "No routes file found"))))
 
 ;;; ============================================================
 ;;; Console Log Helpers
@@ -930,12 +987,18 @@ Removes the component from its NgModule declarations."
      ["Namespace"
       ("n f" "New Feature" angular-create-feature)
       ("n b" "Create Barrel" angular-create-barrel)
-      ("n B" "Create Barrels (recursive)" angular-create-barrel-recursive)
+      ("n B" "Barrels (recursive)" angular-create-barrel-recursive)
       ("n i" "→ Barrel Imports" angular-convert-to-barrel-imports)
       ("n a" "Add Path Alias" angular-add-path-alias)
-      ("n @" "→ Alias Imports" angular-convert-to-alias-imports)
-      ""
+      ("n @" "→ Alias Imports" angular-convert-to-alias-imports)]]
+    [["Run"
+      ("R s" "Serve" angular-serve)
+      ("R b" "Build" angular-build)
+      ("R t" "Test" angular-test)
+      ("R l" "Lint" angular-lint)]
+     ["Project"
       ("p" "angular.json" angular-project-config)
+      ("P" "Routes" angular-open-routes)
       ("h d" "API Docs" angular-lookup-word)
       ("h s" "Search Docs" angular-search-word)]])
   (angular-menu))
@@ -998,12 +1061,23 @@ Removes the component from its NgModule declarations."
             (define-key map (kbd "C-c a n i") 'angular-convert-to-barrel-imports)
             (define-key map (kbd "C-c a n a") 'angular-add-path-alias)
             (define-key map (kbd "C-c a n @") 'angular-convert-to-alias-imports)
+            (define-key map (kbd "C-c a R s") 'angular-serve)
+            (define-key map (kbd "C-c a R b") 'angular-build)
+            (define-key map (kbd "C-c a R t") 'angular-test)
+            (define-key map (kbd "C-c a R l") 'angular-lint)
+            (define-key map (kbd "C-c a P") 'angular-open-routes)
             map)
   (when angular-mode
     (add-hook 'xref-backend-functions #'angular-xref-backend nil t)))
 
+(defun angular-mode-maybe ()
+  "Enable `angular-mode' if the current file is in an Angular project."
+  (when (and buffer-file-name
+             (locate-dominating-file buffer-file-name "angular.json"))
+    (angular-mode 1)))
+
 (define-globalized-minor-mode global-angular-mode angular-mode
-  (lambda () (angular-mode 1)))
+  angular-mode-maybe)
 
 (provide 'angular-mode)
 ;;; angular-mode.el ends here
