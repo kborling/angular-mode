@@ -1,45 +1,10 @@
 ;;; angular-mode.el --- Emacs Minor Mode for Working with Angular CLI -*- lexical-binding: t; -*-
 ;;
-;; This package facilitates interaction with Angular projects by providing a minor mode.
-;; It offers an interactive API for Angular CLI commands through a dedicated keymap.
-;;
-;; Keybindings:
-;;   - C-c a g: Generate an Angular schematic.
-;;   - C-c a p: Open the project's angular.json file.
-;;   - C-c a h d: Lookup current word at point in API reference documentation website.
-;;   - C-c a h s: Perform a search of angular.io using the current word at point.
-;;   - C-c a o c: Open a component.ts file.
-;;   - C-c a o t: Open a component.html file.
-;;   - C-c a o v: Open a component.(scss|sass|less|css) file.
-;;   - C-c a o x: Open a component.spec.ts file.
-;;   - C-c a o d: Open a directive.ts file.
-;;   - C-c a o g: Open a guard.ts file.
-;;   - C-c a o i: Open a interceptor.ts file.
-;;   - C-c a o m: Open a module.ts file.
-;;   - C-c a o p: Open a pipe.ts file.
-;;   - C-c a o r: Open a resolver.ts file.
-;;   - C-c a o s: Open a service.ts file.
-;;   - C-c a o w: Open a worker.ts file.
-;;   - C-c a j c: Jump to the associated component.ts file.
-;;   - C-c a j t: Jump to the associated component.html file.
-;;   - C-c a j v: Jump to the associated component.(scss|sass|less|css) file.
-;;   - C-c a j x: Jump to the associated component.spec.ts file.
-;;   - C-c a o f: Open an interface.ts file.
-;;   - C-c a c: Insert console.log for expression at point.
-;;   - C-c a d: Remove all console.log statements.
-;;   - C-c a r: Rename a component (files, class, selector, imports).
-;;   - C-c a m d: Move a directory and update import paths.
-;;   - C-c a m f: Move a file and update import paths.
-;;
-;; To use this package, activate `angular-mode` and leverage the provided keybindings
-;; to generate schematics in the project directory of choice.
-;;
-;;
 ;; Copyright (C) 2024 Kevin Borling <kborling@protonmail.com>
 ;;
 ;; Author: Kevin Borling <kborling@protonmail.com>
 ;; Created: October 16, 2023
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Keywords: angular, angular-cli, angular-mode
 ;; License: MIT
 ;; URL: https://github.com/kborling/angular-mode
@@ -69,28 +34,23 @@
 ;;
 ;;; Commentary:
 ;;
-;; This package simplifies working with Angular projects in Emacs. It offers a minor
-;; mode for convenient interactive use of Angular CLI commands. The provided keymap
-;; makes it easy to generate components, services, directives, and more with minimal
-;; effort.
+;; Minor mode for Angular projects. Provides schematic generation, fast
+;; navigation between component parts, and refactoring commands.
 ;;
-;; To use this package, copy it to your Emacs configuration, evaluate the code, and
-;; activate the `angular-mode` minor mode. You can then use the specified keybindings
-;; to streamline your Angular project development.
-;;
-;; To customize the Angular CLI executable or add more commands, please refer to
-;; the package documentation for instructions.
-;;
-;; Enjoy working with Angular in Emacs!
+;; Key bindings (all under C-c a, or use the transient with C-c a a):
+;;   C-c a a   Transient menu (discover all commands)
+;;   C-c a TAB Cycle between component ts/html/scss/spec
+;;   C-c a g   Generate a schematic
+;;   C-c a o   Open a schematic by type
+;;   C-c a j   Jump to associated file
 ;;
 ;;; Code:
 
 (require 'cl-lib)
-(require 'xref)
 
 (defgroup angular-mode nil
-  "Angular mode, a minor mode for interacting with the Angular CLI."
-  :group 'angular-mode)
+  "Angular mode for interacting with Angular CLI."
+  :group 'tools)
 
 (defcustom angular-cli-executable nil
   "Path to the Angular CLI executable.
@@ -98,344 +58,246 @@ If nil, auto-detects npx or ng at first use."
   :type '(choice (const nil) string)
   :group 'angular-mode)
 
+(defcustom angular-import-path-style 'relative
+  "Style of import paths. \\='absolute or \\='relative."
+  :type '(choice (const :tag "Absolute" absolute)
+                 (const :tag "Relative" relative))
+  :group 'angular-mode)
+
 (defun angular-cli-executable ()
   "Return the Angular CLI executable."
   (or angular-cli-executable
       (if (executable-find "npx") "npx ng" "ng")))
 
-(defcustom angular-import-path-style 'relative
-  "Determines the style of import paths in Angular projects.
-Choose \\'absolute for absolute paths or \\'relative for relative paths."
-  :type '(choice (const :tag "Absolute" absolute)
-                 (const :tag "Relative" relative))
-  :group 'angular-customizations)
-
-(defun angular-generate (schematic name)
-  "Generate an Angular SCHEMATIC called NAME in the directory of choice."
-  (interactive (list (completing-read "Schematic: "
-                                      '("component" "service" "directive" "pipe" "guard" "interceptor" "resolver" "interface" "class" "enum" "library" "environments"))
-                     (read-string "Name: ")))
-  (let* ((selected-directory (file-name-as-directory (expand-file-name (read-directory-name "Select a directory: "))))
-         (current-directory (file-name-directory default-directory))
-         (relative-path (file-relative-name selected-directory current-directory))
-         (directory (if (string-prefix-p "/" relative-path)
-                        relative-path
-                      (concat (if (not (string-suffix-p "/" relative-path)) "../")
-                              relative-path))))
-    (setq directory (concat directory name))
-    (compile (format "%s generate %s %s" (angular-cli-executable) schematic directory))))
-
-(defun angular-open-component ()
-  "Open an Angular component file in the project."
-  (interactive)
-  (angular-open-file "component"))
-
-(defun angular-open-component-template ()
-  "Open an Angular component template file in the project."
-  (interactive)
-  (angular-open-file "component" "html"))
-
-(defun angular-open-component-stylesheet ()
-  "Open an Angular stylesheet file in the project."
-  (interactive)
-  (angular-open-file "component" "\\(scss\\|less\\|sass\\|css\\)"))
-
-(defun angular-open-component-test ()
-  "Open an Angular component test file in the project."
-  (interactive)
-  (angular-open-file "component.spec"))
-
-(defun angular-open-service ()
-  "Open an Angular service file in the project."
-  (interactive)
-  (angular-open-file "service"))
-
-(defun angular-open-module ()
-  "Open an Angular module file in the project."
-  (interactive)
-  (angular-open-file "module"))
-
-(defun angular-open-directive ()
-  "Open an Angular directive file in the project."
-  (interactive)
-  (angular-open-file "directive"))
-
-(defun angular-open-guard ()
-  "Open an Angular guard file in the project."
-  (interactive)
-  (angular-open-file "guard"))
-
-(defun angular-open-interceptor ()
-  "Open an Angular interceptor file in the project."
-  (interactive)
-  (angular-open-file "interceptor"))
-
-(defun angular-open-pipe ()
-  "Open an Angular pipe file in the project."
-  (interactive)
-  (angular-open-file "pipe"))
-
-(defun angular-open-resolver ()
-  "Open an Angular resolver file in the project."
-  (interactive)
-  (angular-open-file "resolver"))
-
-(defun angular-open-web-worker ()
-  "Open an Angular web-worker file in the project."
-  (interactive)
-  (angular-open-file "worker"))
-
-(defun angular-jump-to-component ()
-  "Jump to the associated component file in the project."
-  (interactive)
-  (angular-jump-to-file "component"))
-
-(defun angular-jump-to-template ()
-  "Jump to the associated template file in the project."
-  (interactive)
-  (angular-jump-to-file "template"))
-
-(defun angular-jump-to-stylesheet ()
-  "Jump to the associated stylesheet file in the project."
-  (interactive)
-  (angular-jump-to-file "stylesheet"))
-
-(defun angular-jump-to-test ()
-  "Jump to the associated test file in the project."
-  (interactive)
-  (angular-jump-to-file "test"))
-
-(defun angular-lookup-word ()
-  "Lookup the current word at point in API reference documentation."
-  (interactive)
-  (angular-docs nil))
-
-(defun angular-search-word ()
-  "Perform a search of angular.io using the current word at point."
-  (interactive)
-  (angular-docs t))
-
-(defun angular-docs (search)
-  "Lookup the current word at point in Angular documentation.
-If SEARCH is non-nil, search angular.dev. Otherwise open API reference."
-  (let ((word (current-word)))
-    (if word
-        (browse-url (if search
-                       (format "https://angular.dev/search?q=%s" word)
-                     (format "https://angular.dev/api/%s" word)))
-      (message "No word at point."))))
-
-(defun angular-open-file (schematic &optional file-type)
-  "Open an Angular SCHEMATIC with optional FILE-TYPE in the project."
-  (let ((project-root (file-name-as-directory (expand-file-name "src" (angular-find-project-root))))
-        (schematics '()))
-    (when project-root
-      (or file-type (setq file-type "ts"))
-      (dolist (dir (directory-files-recursively project-root (format ".+\\.%s\\.%s$" schematic file-type)))
-        (let* ((relative-path (file-relative-name dir project-root)))
-          (push relative-path schematics)))
-      (if schematics
-          (let ((selected-schematic (completing-read (format "Select %s: " schematic) schematics)))
-            (let ((schematic-file (concat project-root selected-schematic)))
-              (if (file-exists-p schematic-file)
-                  (find-file schematic-file)
-                (message "%s file not found: %s" schematic schematic-file))))
-        (message "No Angular %ss found in the project." schematic)))))
-
-(defun angular-jump-to-file (file-type)
-  "Jump to the associated FILE-TYPE in the same directory."
-  (let ((current-file (buffer-file-name)))
-    (when current-file
-      (let* ((file-name (if (string-suffix-p (format ".spec.ts") current-file)
-                            (file-name-sans-extension (file-name-sans-extension (file-name-nondirectory current-file)))
-                          (file-name-sans-extension (file-name-nondirectory current-file))))
-             (dir-name (file-name-directory current-file))
-             (extensions (pcase file-type
-                           ("template" '("html"))
-                           ("component" '("ts"))
-                           ("test" '("spec.ts"))
-                           ("stylesheet" '("scss" "sass" "less" "css"))))
-             (associated-file nil))
-
-        ;; Find the first matching file extension
-        (catch 'found
-          (dolist (ext extensions)
-            (let ((file-path (format "%s%s.%s" dir-name file-name ext)))
-              (when (file-exists-p file-path)
-                (setq associated-file file-path)
-                (throw 'found associated-file)))))
-
-        (if associated-file
-            (find-file associated-file)
-          (message "Associated %s file not found" file-type))))))
-
-(defun angular-update-import-paths (old-path new-path)
-  "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
-  (let* ((project-root (angular-find-project-root))
-         (app-directory (expand-file-name "src/app" project-root))
-         (search (expand-file-name old-path project-root))
-         (replace (expand-file-name new-path project-root))
-         (import-regex "import\\s-+{.*?}\\s-+from\\s-+\\(['\\\"]\\)\\(.*?\\)\\1"))
-
-    (dolist (ts-file (directory-files-recursively app-directory "\\.ts$"))
-      (with-temp-buffer
-        ;; Insert file contents into temp buffer
-        (insert-file-contents ts-file)
-        ;; Go to the beginning of the file
-        (goto-char (point-min))
-
-        (let ((original-contents (buffer-string))
-              (file-path (file-name-directory ts-file)))
-          ;; Search through each import statement and replace path
-          (while (re-search-forward import-regex nil t)
-            (let ((match (match-string 2))) ; The matched import path
-              (unless (string-prefix-p "@" match) ; TODO Add support for custom modules in future
-                (let ((expanded-match
-                       ;; If the current 'file-path' ends in src/app/
-                       ;; and import begins with src/app, use 'project-root' as base expansion instead of 'file-path'
-                       (if (and (string-match-p "src/app" match) (string-match-p "src/app/$" file-path))
-                           (expand-file-name match project-root)
-                         (expand-file-name match file-path))))
-                  (when (string-prefix-p search expanded-match)
-                    (let* ((remainder (substring expanded-match (length search)))
-                           (final-replacement-path
-                            (cond
-                             ((eq angular-import-path-style 'absolute)
-                              (file-relative-name (concat (directory-file-name replace) remainder) project-root))
-                             ((eq angular-import-path-style 'relative)
-                              (let ((relative-path (file-relative-name
-                                                    (concat (directory-file-name replace) remainder) file-path)))
-                                ;; Ensure relative paths start with "./" if they don't already
-                                (if (or (string-prefix-p "./" relative-path) (string-prefix-p "../" relative-path))
-                                    relative-path
-                                  (concat "./" relative-path)))))))
-                      ;; Replace the matched text with the new path
-                      (replace-match final-replacement-path nil nil nil 2)))))))
-
-          (when (not (equal (buffer-string) original-contents))
-            (write-region (point-min) (point-max) ts-file)))))))
-
-(defun angular-move-directory (current-directory destination)
-  "Move Angular component from CURRENT-DIRECTORY to DESTINATION.
-Update all import paths in files that reference the component."
-  (interactive (list (read-directory-name "Current directory: ")
-                     (read-directory-name "New directory: ")))
-  (let* ((current-dir (expand-file-name (directory-file-name (file-name-directory current-directory))))
-         (current-dir-name (file-name-nondirectory current-dir))
-         (new-dir (file-name-concat (expand-file-name (file-name-directory destination)) current-dir-name)))
-    (when (file-directory-p new-dir)
-      (error "Destination already has a directory named '%s'" new-dir))
-    (unless (file-directory-p destination)
-      (make-directory destination :parents))
-    (rename-file current-dir new-dir t)
-    (angular-update-import-paths current-dir new-dir)))
-
-(defun angular-move-file (current-path destination)
-  "Move Angular file and associated spec file \\
-from CURRENT-PATH to DESTINATION.
-Update all import paths in files that reference the entity."
-
-  (interactive (list (read-file-name "Select entity: ")
-                     (read-directory-name "New directory: ")))
-
-  (let* ((is-spec-file (string-suffix-p (format ".spec.ts") current-path))
-         (base-name (file-name-sans-extension (file-name-nondirectory current-path)))
-         (base-path (file-name-directory current-path))
-         (current-dir (directory-file-name base-path))
-         (file-name (if is-spec-file
-                        (file-name-sans-extension (file-name-sans-extension (file-name-nondirectory current-path)))
-                      (file-name-sans-extension (file-name-nondirectory current-path))))
-         (spec-file-exists (or is-spec-file (file-exists-p (expand-file-name (concat base-name ".spec.ts") current-dir))))
-
-         (component-name (file-name-nondirectory (directory-file-name current-dir)))
-         (new-dir (expand-file-name component-name destination))
-
-         (full-name (file-name-nondirectory current-path))
-
-         (file-name-ext (if is-spec-file
-                            (concat file-name ".ts")
-                          full-name))
-         (old-base-path (expand-file-name file-name-ext base-path))
-         (new-base-path (expand-file-name file-name-ext destination))
-
-         (spec-name-ext (if is-spec-file
-                            full-name
-                          (concat base-name ".spec.ts")))
-
-         (old-spec-path (expand-file-name spec-name-ext base-path))
-         (new-spec-path (expand-file-name spec-name-ext destination))) ;; end let
-
-    (when (file-in-directory-p file-name-ext new-dir)
-      (error "Destination already has a file named '%s'" file-name-ext))
-
-    (when (and spec-file-exists (file-in-directory-p spec-name-ext new-dir))
-      (error "Destination already has a spec file named '%s'" file-name-ext))
-
-    ;; Create destination directory if it doesn't exist
-    (unless (file-directory-p destination)
-      (make-directory destination :parents))
-
-    ;; (unless is-spec-file
-    (rename-file old-base-path new-base-path t)
-
-    ;; Move the associated spec file if it exists
-    (when (or is-spec-file spec-file-exists)
-      (rename-file old-spec-path new-spec-path t))
-
-    ;; Update import paths for entity file
-    (angular-update-import-paths (file-name-sans-extension old-base-path) (file-name-sans-extension new-base-path))
-
-    ;; Update import paths for spec file
-    (when (or is-spec-file spec-file-exists)
-      (angular-update-import-paths (file-name-sans-extension old-spec-path) (file-name-sans-extension new-spec-path)))))
+;;; ============================================================
+;;; Project Root
+;;; ============================================================
 
 (defun angular-find-project-root ()
   "Find the root directory of an Angular project."
-  (let ((current-dir (file-name-directory (or buffer-file-name default-directory)))
-        (root-file "angular.json"))
-    (locate-dominating-file current-dir root-file)))
+  (locate-dominating-file (or buffer-file-name default-directory) "angular.json"))
 
 (defun angular-project-config ()
   "Open the project's angular.json file."
   (interactive)
-  (let ((project-root (angular-find-project-root)))
-    (if project-root
-        (find-file (expand-file-name "angular.json" project-root))
-      (message "Not inside an Angular project with an angular.json file."))))
+  (let ((root (angular-find-project-root)))
+    (if root
+        (find-file (expand-file-name "angular.json" root))
+      (message "Not inside an Angular project."))))
 
 (defun angular-get-prefix ()
-  "Get the prefix value from the nearest Angular JSON file.
-Searches for angular.json in the project root or parent directories.
-Returns the prefix as a string, or nil if not found."
-  (let* ((project-root (angular-find-project-root))
-         (angular-json-path (when project-root
-                              (expand-file-name "angular.json" project-root))))
-    (if (and angular-json-path (file-exists-p angular-json-path))
-        (with-temp-buffer
-          (insert-file-contents angular-json-path)
-          (goto-char (point-min))
-          (if (re-search-forward "\"prefix\"\\s-*:\\s-*\"\\([^\"]+\\)\"" nil t)
-              (match-string 1)
-            (message "No 'prefix' key found in %s" angular-json-path)
-            nil))
-      (message "No Angular project found.")
-      nil)))
+  "Get the prefix from angular.json."
+  (let* ((root (angular-find-project-root))
+         (json-path (when root (expand-file-name "angular.json" root))))
+    (when (and json-path (file-exists-p json-path))
+      (with-temp-buffer
+        (insert-file-contents json-path)
+        (goto-char (point-min))
+        (when (re-search-forward "\"prefix\"\\s-*:\\s-*\"\\([^\"]+\\)\"" nil t)
+          (match-string 1))))))
+
+;;; ============================================================
+;;; Fast File Listing (fd or find)
+;;; ============================================================
+
+(defun angular--project-files (root pattern)
+  "List files matching PATTERN under ROOT/src, using fd if available."
+  (let ((src-dir (expand-file-name "src" root)))
+    (when (file-directory-p src-dir)
+      (if (executable-find "fd")
+          (let ((default-directory src-dir))
+            (mapcar (lambda (f) (expand-file-name f src-dir))
+                    (split-string
+                     (shell-command-to-string
+                      (format "fd --type f %s" (shell-quote-argument pattern)))
+                     "\n" t)))
+        (directory-files-recursively src-dir pattern)))))
+
+(defun angular--find-by-selector (root selector)
+  "Find the component.ts file with SELECTOR under ROOT, using rg if available."
+  (let ((src-dir (expand-file-name "src" root))
+        (pattern (format "selector:\\s*['\"]%s['\"]" selector)))
+    (if (executable-find "rg")
+        (let ((output (shell-command-to-string
+                       (format "rg --files-with-matches --no-heading %s %s --glob '*.component.ts'"
+                               (shell-quote-argument pattern)
+                               (shell-quote-argument src-dir)))))
+          (let ((file (car (split-string output "\n" t))))
+            (when (and file (file-exists-p file)) file)))
+      ;; Fallback: read each file
+      (cl-find-if
+       (lambda (file)
+         (with-temp-buffer
+           (insert-file-contents file)
+           (goto-char (point-min))
+           (re-search-forward pattern nil t)))
+       (angular--project-files root "\\.component\\.ts$")))))
+
+;;; ============================================================
+;;; Schematic Generation
+;;; ============================================================
+
+(defun angular-generate (schematic name)
+  "Generate an Angular SCHEMATIC called NAME."
+  (interactive
+   (list (completing-read "Schematic: "
+                          '("component" "service" "directive" "pipe" "guard"
+                            "interceptor" "resolver" "interface" "class" "enum"
+                            "module" "library" "application" "config"
+                            "environments"))
+         (read-string "Name: ")))
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (target-dir (read-directory-name "Directory: "
+                                          (expand-file-name "src/app" root)))
+         (relative (file-relative-name target-dir (expand-file-name "src/app" root)))
+         (path (if (string= relative "./") name
+                 (concat (directory-file-name relative) "/" name)))
+         (options (completing-read-multiple
+                   "Options (comma-separated, or empty): "
+                   '("--skip-tests" "--inline-style" "--inline-template"
+                     "--flat" "--export" "--standalone=false"))))
+    (compile (format "%s generate %s %s %s"
+                     (angular-cli-executable) schematic path
+                     (string-join options " ")))))
+
+;;; ============================================================
+;;; Component Cycle (ts ↔ html ↔ scss ↔ spec)
+;;; ============================================================
+
+(defun angular-cycle ()
+  "Cycle between component files: ts → html → scss → spec → ts."
+  (interactive)
+  (let* ((file (or buffer-file-name (user-error "Buffer has no file")))
+         (dir (file-name-directory file))
+         (base (angular--component-base file))
+         (current-ext (angular--component-ext file))
+         (cycle-order '("ts" "html" "scss" "sass" "less" "css" "spec.ts"))
+         (style-exts '("scss" "sass" "less" "css"))
+         next-file)
+    (unless base
+      (user-error "Not in a component file"))
+    ;; Find the next file in cycle
+    (catch 'found
+      ;; Find current position in cycle
+      (let* ((pos (cl-position current-ext cycle-order :test #'string=))
+             (len (length cycle-order)))
+        (when pos
+          (cl-loop for i from 1 below len
+                   for idx = (mod (+ pos i) len)
+                   for ext = (nth idx cycle-order)
+                   do (let ((candidate (format "%s%s.%s" dir base ext)))
+                        (when (file-exists-p candidate)
+                          (setq next-file candidate)
+                          (throw 'found t))))
+          ;; If a style ext, also check other style extensions
+          (when (member current-ext style-exts)
+            (dolist (ext '("spec.ts" "ts" "html"))
+              (let ((candidate (format "%s%s.%s" dir base ext)))
+                (when (file-exists-p candidate)
+                  (setq next-file candidate)
+                  (throw 'found t))))))))
+    (if next-file
+        (find-file next-file)
+      (message "No other component files found"))))
+
+(defun angular--component-base (file)
+  "Extract the component base name from FILE (e.g. 'auth.component' from auth.component.ts)."
+  (let ((name (file-name-nondirectory file)))
+    (cond
+     ((string-match "^\\(.+\\.component\\)\\.spec\\.ts$" name) (match-string 1 name))
+     ((string-match "^\\(.+\\.component\\)\\." name) (match-string 1 name))
+     (t nil))))
+
+(defun angular--component-ext (file)
+  "Extract the extension type from a component FILE."
+  (let ((name (file-name-nondirectory file)))
+    (cond
+     ((string-match "\\.component\\.spec\\.ts$" name) "spec.ts")
+     ((string-match "\\.component\\.\\([a-z]+\\)$" name) (match-string 1 name))
+     (t nil))))
+
+;;; ============================================================
+;;; Open by Type
+;;; ============================================================
+
+(defun angular-open-file (schematic &optional file-type)
+  "Open an Angular SCHEMATIC with optional FILE-TYPE."
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (ext (or file-type "ts"))
+         (pattern (format "\\.%s\\.%s$" schematic ext))
+         (files (angular--project-files root pattern)))
+    (if files
+        (let* ((src-dir (expand-file-name "src" root))
+               (candidates (mapcar (lambda (f) (file-relative-name f src-dir)) files))
+               (choice (completing-read (format "Open %s: " schematic) candidates nil t)))
+          (find-file (expand-file-name choice src-dir)))
+      (message "No %s files found" schematic))))
+
+(defun angular-open-component ()         (interactive) (angular-open-file "component"))
+(defun angular-open-component-template () (interactive) (angular-open-file "component" "html"))
+(defun angular-open-component-stylesheet () (interactive) (angular-open-file "component" "\\(scss\\|less\\|sass\\|css\\)"))
+(defun angular-open-component-test ()    (interactive) (angular-open-file "component.spec"))
+(defun angular-open-service ()           (interactive) (angular-open-file "service"))
+(defun angular-open-module ()            (interactive) (angular-open-file "module"))
+(defun angular-open-directive ()         (interactive) (angular-open-file "directive"))
+(defun angular-open-guard ()             (interactive) (angular-open-file "guard"))
+(defun angular-open-interceptor ()       (interactive) (angular-open-file "interceptor"))
+(defun angular-open-pipe ()              (interactive) (angular-open-file "pipe"))
+(defun angular-open-resolver ()          (interactive) (angular-open-file "resolver"))
+(defun angular-open-web-worker ()        (interactive) (angular-open-file "worker"))
+(defun angular-open-interface ()         (interactive) (angular-open-file "interface"))
+
+;;; ============================================================
+;;; Jump to Associated File
+;;; ============================================================
+
+(defun angular-jump-to-file (file-type)
+  "Jump to the associated FILE-TYPE in the same directory."
+  (let* ((file (or buffer-file-name (user-error "Buffer has no file")))
+         (base (angular--component-base file))
+         (dir (file-name-directory file))
+         (extensions (pcase file-type
+                       ("template" '("html"))
+                       ("component" '("ts"))
+                       ("test" '("spec.ts"))
+                       ("stylesheet" '("scss" "sass" "less" "css")))))
+    (unless base
+      (user-error "Not in a component file"))
+    (let ((found (cl-find-if
+                  (lambda (ext)
+                    (file-exists-p (format "%s%s.%s" dir base ext)))
+                  extensions)))
+      (if found
+          (find-file (format "%s%s.%s" dir base found))
+        (message "Associated %s file not found" file-type)))))
+
+(defun angular-jump-to-component ()  (interactive) (angular-jump-to-file "component"))
+(defun angular-jump-to-template ()   (interactive) (angular-jump-to-file "template"))
+(defun angular-jump-to-stylesheet () (interactive) (angular-jump-to-file "stylesheet"))
+(defun angular-jump-to-test ()       (interactive) (angular-jump-to-file "test"))
+
+;;; ============================================================
+;;; Xref Backend
+;;; ============================================================
 
 (defun angular-xref-backend ()
   "Define the xref backend for Angular."
   'angular)
 
 (cl-defmethod xref-backend-definitions ((backend (eql angular)) identifier)
-  "Find the definitions of the IDENTIFIER using the Angular BACKEND."
+  "Find definitions of IDENTIFIER using the Angular BACKEND."
   (let* ((selector (angular-extract-selector identifier))
-         (component-file (when selector
-                           (angular-find-component-file-by-selector selector))))
+         (root (angular-find-project-root))
+         (component-file (when (and selector root)
+                           (angular--find-by-selector root selector))))
     (if component-file
         (list (xref-make selector (xref-make-file-location component-file 1 0)))
-      (user-error "Component definition not found for selector: %s" selector))))
+      (user-error "Component not found for selector: %s" selector))))
 
 (defun angular-thing-at-point ()
-  "Get the full Angular component tag at point, including hyphens."
+  "Get the full Angular component tag at point."
   (let ((start (save-excursion
                  (while (and (not (bobp))
                              (looking-back "[a-z0-9-]" 1))
@@ -453,139 +315,190 @@ Returns the prefix as a string, or nil if not found."
   (when (string-match "\\([[:alnum:]-]+\\)" tag)
     (match-string 1 tag)))
 
-(defun angular-find-component-file-by-selector (selector)
-  "Find the Angular component file that has the given SELECTOR."
-  (let ((project-root (angular-find-project-root)))
-    (when project-root
-      (angular-search-component-file project-root selector))))
+;;; ============================================================
+;;; Docs
+;;; ============================================================
 
-(defun angular-search-component-file (directory selector)
-  "Search for the Angular component file with SELECTOR in DIRECTORY."
-  (let ((files (directory-files-recursively
-                (expand-file-name "src" directory) "\\.component\\.ts$")))
-    (cl-find-if
-     (lambda (file)
-       (with-temp-buffer
-         (insert-file-contents file)
-         (goto-char (point-min))
-         (re-search-forward (format "selector:\\s-*['\"]%s['\"]" selector) nil t)))
-     files)))
+(defun angular-lookup-word ()
+  "Lookup word at point in Angular API docs."
+  (interactive)
+  (angular-docs nil))
+
+(defun angular-search-word ()
+  "Search angular.dev for word at point."
+  (interactive)
+  (angular-docs t))
+
+(defun angular-docs (search)
+  "Lookup word at point in Angular docs. SEARCH t for search, nil for API."
+  (let ((word (current-word)))
+    (if word
+        (browse-url (if search
+                       (format "https://angular.dev/search?q=%s" word)
+                     (format "https://angular.dev/api/%s" word)))
+      (message "No word at point."))))
+
+;;; ============================================================
+;;; Import Path Updates
+;;; ============================================================
+
+(defun angular-update-import-paths (old-path new-path)
+  "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
+  (let* ((project-root (angular-find-project-root))
+         (app-directory (expand-file-name "src/app" project-root))
+         (search (expand-file-name old-path project-root))
+         (replace (expand-file-name new-path project-root))
+         (import-regex "import\\s-+{.*?}\\s-+from\\s-+\\(['\\\"]\\)\\(.*?\\)\\1"))
+    (dolist (ts-file (directory-files-recursively app-directory "\\.ts$"))
+      (with-temp-buffer
+        (insert-file-contents ts-file)
+        (goto-char (point-min))
+        (let ((original-contents (buffer-string))
+              (file-path (file-name-directory ts-file)))
+          (while (re-search-forward import-regex nil t)
+            (let ((match (match-string 2)))
+              (unless (string-prefix-p "@" match)
+                (let ((expanded-match
+                       (if (and (string-match-p "src/app" match)
+                                (string-match-p "src/app/$" file-path))
+                           (expand-file-name match project-root)
+                         (expand-file-name match file-path))))
+                  (when (string-prefix-p search expanded-match)
+                    (let* ((remainder (substring expanded-match (length search)))
+                           (final-path
+                            (cond
+                             ((eq angular-import-path-style 'absolute)
+                              (file-relative-name
+                               (concat (directory-file-name replace) remainder) project-root))
+                             ((eq angular-import-path-style 'relative)
+                              (let ((rel (file-relative-name
+                                          (concat (directory-file-name replace) remainder) file-path)))
+                                (if (or (string-prefix-p "./" rel) (string-prefix-p "../" rel))
+                                    rel
+                                  (concat "./" rel)))))))
+                      (replace-match final-path nil nil nil 2)))))))
+          (when (not (equal (buffer-string) original-contents))
+            (write-region (point-min) (point-max) ts-file)))))))
+
+;;; ============================================================
+;;; Move & Rename
+;;; ============================================================
+
+(defun angular-move-directory (current-directory destination)
+  "Move Angular component from CURRENT-DIRECTORY to DESTINATION."
+  (interactive (list (read-directory-name "Current directory: ")
+                     (read-directory-name "New directory: ")))
+  (let* ((current-dir (expand-file-name (directory-file-name (file-name-directory current-directory))))
+         (current-dir-name (file-name-nondirectory current-dir))
+         (new-dir (file-name-concat (expand-file-name (file-name-directory destination)) current-dir-name)))
+    (when (file-directory-p new-dir)
+      (user-error "Destination already has a directory named '%s'" current-dir-name))
+    (unless (file-directory-p destination)
+      (make-directory destination :parents))
+    (rename-file current-dir new-dir t)
+    (angular-update-import-paths current-dir new-dir)))
+
+(defun angular-move-file (current-path destination)
+  "Move Angular file from CURRENT-PATH to DESTINATION."
+  (interactive (list (read-file-name "Select file: ")
+                     (read-directory-name "New directory: ")))
+  (let* ((is-spec (string-suffix-p ".spec.ts" current-path))
+         (base-name (file-name-sans-extension (file-name-nondirectory current-path)))
+         (base-path (file-name-directory current-path))
+         (file-stem (if is-spec
+                        (file-name-sans-extension (file-name-sans-extension (file-name-nondirectory current-path)))
+                      (file-name-sans-extension (file-name-nondirectory current-path))))
+         (spec-exists (or is-spec
+                          (file-exists-p (expand-file-name (concat base-name ".spec.ts") base-path))))
+         (file-ext (if is-spec (concat file-stem ".ts") (file-name-nondirectory current-path)))
+         (spec-ext (if is-spec (file-name-nondirectory current-path) (concat base-name ".spec.ts")))
+         (old-file (expand-file-name file-ext base-path))
+         (new-file (expand-file-name file-ext destination))
+         (old-spec (expand-file-name spec-ext base-path))
+         (new-spec (expand-file-name spec-ext destination)))
+    (unless (file-directory-p destination)
+      (make-directory destination :parents))
+    (rename-file old-file new-file t)
+    (when spec-exists
+      (rename-file old-spec new-spec t))
+    (angular-update-import-paths
+     (file-name-sans-extension old-file) (file-name-sans-extension new-file))
+    (when spec-exists
+      (angular-update-import-paths
+       (file-name-sans-extension old-spec) (file-name-sans-extension new-spec)))))
 
 (defun angular-rename-component ()
-  "Rename an Angular component.
-1. Prompts the user to select an existing component to rename.
-2. Prompts the user to input a new name in kebab-case format.
-This updates:
-- The class name in TypeScript files (PascalCase).
-- The selector name in TypeScript and HTML files (kebab-case).
-- The component's file names (kebab-case).
-- All imports and references to the renamed component."
+  "Rename an Angular component (files, class, selector, imports)."
   (interactive)
-  (let* ((project-root (angular-find-project-root))
-         (components (angular-list-components project-root))
-         (old-name (completing-read "Select component to rename: " components))
-         (new-name (read-string "New component name (kebab-case): "))
+  (let* ((root (or (angular-find-project-root)
+                   (user-error "Not in an Angular project")))
+         (components (angular-list-components root))
+         (old-name (completing-read "Component to rename: " components nil t))
+         (new-name (read-string "New name (kebab-case): "))
          (prefix (angular-get-prefix))
          (old-selector (format "%s-%s" prefix old-name))
          (new-selector (format "%s-%s" prefix new-name))
-         (old-dir (directory-file-name
-                   (file-name-directory
-                    (car (directory-files-recursively project-root
-                                                      (format "%s.component\\.ts$" old-name))))))
-         (new-dir (concat (file-name-directory (directory-file-name old-dir))
-                          new-name)))
-
-    ;; Rename the parent directory
-    (when (and old-dir new-dir (not (string-equal old-dir new-dir)))
+         (old-dir (let ((files (angular--project-files root
+                                (format "^%s\\.component\\.ts$" (regexp-quote old-name)))))
+                    (when files (directory-file-name (file-name-directory (car files))))))
+         (new-dir (when old-dir
+                    (concat (file-name-directory (directory-file-name old-dir)) new-name))))
+    (unless old-dir
+      (user-error "Component '%s' not found" old-name))
+    ;; Rename directory
+    (when (not (string= old-dir new-dir))
       (rename-file old-dir new-dir)
-      ;; Update all references to the old directory
       (angular-update-import-paths old-dir new-dir))
-
-    ;; Dynamically resolve the new file paths after renaming the directory
-    (let* ((component-files (directory-files-recursively
-                           project-root
-                           (format "%s.component\\(\\.spec\\)?\\.ts$" old-name)))
-         (template-files (directory-files-recursively
-                          project-root
-                          (format "%s.component.html$" old-name)))
-         (style-files (directory-files-recursively
-                       project-root
-                       (format "%s.component.\\(scss\\|sass\\|less\\|css\\)$" old-name))))
-
-      ;; Update class name, selector, templateUrl, styleUrls, and import paths in TypeScript files
-    (dolist (file component-files)
+    ;; Update class name, selector, templateUrl, styleUrls in .ts files
+    (dolist (file (directory-files-recursively
+                   new-dir (format "%s\\.component\\(\\.spec\\)?\\.ts$" (regexp-quote old-name))))
       (with-temp-buffer
         (insert-file-contents file)
         (goto-char (point-min))
-        ;; Update class name
         (while (re-search-forward (format "\\b%sComponent\\b" (angular-pascal-case old-name)) nil t)
           (replace-match (format "%sComponent" (angular-pascal-case new-name))))
-        ;; Update selector
         (goto-char (point-min))
-        (while (re-search-forward (format "selector:\\s-*['\"]%s['\"]" old-selector) nil t)
+        (while (re-search-forward (format "selector:\\s-*['\"]%s['\"]" (regexp-quote old-selector)) nil t)
           (replace-match (format "selector: '%s'" new-selector)))
-        ;; Update templateUrl
         (goto-char (point-min))
-        (while (re-search-forward "templateUrl:\\s-*['\"]\\(.*?\\)\\.component\\.html['\"]" nil t)
-          (replace-match (format "templateUrl: './%s.component.html'" new-name)))
-        ;; Update styleUrls (Angular < 17) and styleUrl (Angular 17+)
-        (goto-char (point-min))
-        (while (re-search-forward "styleUrls:\\s-*\\[.*?['\"].*?\\.component\\.\\(scss\\|sass\\|less\\|css\\)['\"].*?\\]" nil t)
-          (replace-match (format "styleUrls: ['./%s.component.%s']"
-                                 new-name (match-string 1))))
-        (goto-char (point-min))
-        (while (re-search-forward "styleUrl:\\s-*['\"].*?\\.component\\.\\(scss\\|sass\\|less\\|css\\)['\"]" nil t)
-          (replace-match (format "styleUrl: './%s.component.%s'"
-                                 new-name (match-string 1))))
-        ;; Save changes
+        (while (re-search-forward (format "%s\\.component" (regexp-quote old-name)) nil t)
+          (replace-match (format "%s.component" new-name)))
         (write-region (point-min) (point-max) file)))
-
-    ;; Rename component template and style files
-    (dolist (file component-files)
-      (message "%s" (replace-regexp-in-string old-name new-name file))
-      (rename-file file (replace-regexp-in-string old-name new-name file)))
-    
-    (dolist (file template-files)
-      (message "%s" (replace-regexp-in-string old-name new-name file))
-      (rename-file file (replace-regexp-in-string old-name new-name file)))
-
-    (dolist (file style-files)
-      (message "%s" (replace-regexp-in-string old-name new-name file))
-      (rename-file file (replace-regexp-in-string old-name new-name file)))
-
-    ;; Update import references to the component in other files
+    ;; Rename files
+    (dolist (file (directory-files new-dir t (regexp-quote old-name)))
+      (let ((new-file (replace-regexp-in-string (regexp-quote old-name) new-name file)))
+        (unless (string= file new-file)
+          (rename-file file new-file))))
+    ;; Update imports referencing the component
     (angular-update-import-paths (format "%s.component" old-name)
                                  (format "%s.component" new-name))
+    (message "Renamed '%s' to '%s'" old-name new-name)))
 
-    (message "Renamed component '%s' to '%s' successfully." old-name new-name))))
-
-(defun angular-list-components (project-root)
-  "List all components in the Angular project at PROJECT-ROOT."
-  (let ((component-regex "\\([a-z0-9-]+\\)\\.component\\.ts$"))
-    (seq-map
-     (lambda (file)
-       (if (string-match component-regex (file-name-nondirectory file))
-           (match-string 1 (file-name-nondirectory file))))
-     (directory-files-recursively project-root "\\.component\\.ts$"))))
+(defun angular-list-components (root)
+  "List all component names in the Angular project at ROOT."
+  (let ((files (angular--project-files root "\\.component\\.ts$")))
+    (delq nil
+          (mapcar (lambda (file)
+                    (when (string-match "\\([a-z0-9-]+\\)\\.component\\.ts$"
+                                        (file-name-nondirectory file))
+                      (match-string 1 (file-name-nondirectory file))))
+                  files))))
 
 (defun angular-pascal-case (kebab-case-name)
-  "Convert KEBAB-CASE-NAME to PascalCase format."
+  "Convert KEBAB-CASE-NAME to PascalCase."
   (mapconcat #'capitalize (split-string kebab-case-name "-") ""))
 
-(defun angular-open-interface ()
-  "Open an Angular interface file in the project."
-  (interactive)
-  (angular-open-file "interface"))
-
-;;; Console Log Helpers =====================================================
+;;; ============================================================
+;;; Console Log Helpers
+;;; ============================================================
 
 (defun angular-console-log-thing-at-point ()
-  "Insert a console.log for the expression at point."
+  "Insert console.log for expression at point."
   (interactive)
   (let ((expr ""))
     (save-excursion
-      (while (or (looking-back "\\(?:\\sw\\|\\s_\\|\\.\\)" (1- (point)))
-                 (looking-back ")" (1- (point))))
+      (while (or (looking-back "\\(?:\\sw\\|\\s_\\|\\.\\)" 1)
+                 (looking-back ")" 1))
         (backward-char))
       (let ((start (point)))
         (while (looking-at "\\(?:\\sw\\|\\s_\\|\\.\\)+")
@@ -600,15 +513,60 @@ This updates:
         (insert (format "console.log('%s', %s);" expr expr))))))
 
 (defun angular-remove-all-console-logs ()
-  "Delete all lines containing console.log(...) in the current buffer."
+  "Delete all lines containing console.log in the current buffer."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward "\\bconsole\\.log\\s-*(" nil t)
-      (beginning-of-line)
-      (kill-whole-line))))
+    (let ((count 0))
+      (while (re-search-forward "\\bconsole\\.log\\s-*(" nil t)
+        (beginning-of-line)
+        (kill-whole-line)
+        (cl-incf count))
+      (message "Removed %d console.log statements" count))))
 
-;;; Angular Template Mode ===================================================
+;;; ============================================================
+;;; Transient Menu
+;;; ============================================================
+
+;;;###autoload
+(defun angular-transient ()
+  "Angular transient menu."
+  (interactive)
+  (require 'transient)
+  (transient-define-prefix angular-menu ()
+    "Angular"
+    [["Navigate"
+      ("TAB" "Cycle ts/html/scss/spec" angular-cycle)
+      ("j c" "Jump → Component" angular-jump-to-component)
+      ("j t" "Jump → Template" angular-jump-to-template)
+      ("j v" "Jump → Stylesheet" angular-jump-to-stylesheet)
+      ("j x" "Jump → Test" angular-jump-to-test)]
+     ["Open"
+      ("o c" "Component" angular-open-component)
+      ("o t" "Template" angular-open-component-template)
+      ("o v" "Stylesheet" angular-open-component-stylesheet)
+      ("o s" "Service" angular-open-service)
+      ("o d" "Directive" angular-open-directive)
+      ("o p" "Pipe" angular-open-pipe)
+      ("o g" "Guard" angular-open-guard)
+      ("o m" "Module" angular-open-module)
+      ("o f" "Interface" angular-open-interface)]
+     ["Actions"
+      ("g" "Generate" angular-generate)
+      ("r" "Rename Component" angular-rename-component)
+      ("m d" "Move Directory" angular-move-directory)
+      ("m f" "Move File" angular-move-file)
+      ("c" "Console.log" angular-console-log-thing-at-point)
+      ("d" "Remove Logs" angular-remove-all-console-logs)]
+     ["Project"
+      ("p" "angular.json" angular-project-config)
+      ("h d" "API Docs" angular-lookup-word)
+      ("h s" "Search Docs" angular-search-word)]])
+  (angular-menu))
+
+;;; ============================================================
+;;; Angular Template Mode
+;;; ============================================================
 
 ;;;###autoload
 (if (fboundp 'html-ts-mode)
@@ -620,13 +578,17 @@ This updates:
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.component\\.html\\'" . angular-template-mode))
 
-;;; Minor Mode ==============================================================
+;;; ============================================================
+;;; Minor Mode
+;;; ============================================================
 
 ;;;###autoload
 (define-minor-mode angular-mode
   "Minor mode for working with Angular CLI."
   :lighter " Angular"
   :keymap (let ((map (make-sparse-keymap)))
+            (define-key map (kbd "C-c a a") 'angular-transient)
+            (define-key map (kbd "C-c a TAB") 'angular-cycle)
             (define-key map (kbd "C-c a g") 'angular-generate)
             (define-key map (kbd "C-c a p") 'angular-project-config)
             (define-key map (kbd "C-c a h d") 'angular-lookup-word)
@@ -643,19 +605,19 @@ This updates:
             (define-key map (kbd "C-c a o r") 'angular-open-resolver)
             (define-key map (kbd "C-c a o s") 'angular-open-service)
             (define-key map (kbd "C-c a o w") 'angular-open-web-worker)
+            (define-key map (kbd "C-c a o f") 'angular-open-interface)
             (define-key map (kbd "C-c a j c") 'angular-jump-to-component)
             (define-key map (kbd "C-c a j t") 'angular-jump-to-template)
             (define-key map (kbd "C-c a j v") 'angular-jump-to-stylesheet)
             (define-key map (kbd "C-c a j x") 'angular-jump-to-test)
-            (define-key map (kbd "C-c a o f") 'angular-open-interface)
             (define-key map (kbd "C-c a c") 'angular-console-log-thing-at-point)
             (define-key map (kbd "C-c a d") 'angular-remove-all-console-logs)
             (define-key map (kbd "C-c a r") 'angular-rename-component)
             (define-key map (kbd "C-c a m d") 'angular-move-directory)
             (define-key map (kbd "C-c a m f") 'angular-move-file)
             map)
-
-  (add-hook 'xref-backend-functions #'angular-xref-backend nil t))
+  (when angular-mode
+    (add-hook 'xref-backend-functions #'angular-xref-backend nil t)))
 
 (define-globalized-minor-mode global-angular-mode angular-mode
   (lambda () (angular-mode 1)))
