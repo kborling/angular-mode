@@ -342,90 +342,124 @@ If nil, auto-detects npx or ng at first use."
 ;;; Import Path Updates
 ;;; ============================================================
 
+(defun angular--compute-new-import (match file-path search replace project-root)
+  "Compute new import path for MATCH in FILE-PATH given SEARCH→REPLACE.
+PROJECT-ROOT is the Angular project root."
+  (unless (string-prefix-p "@" match)
+    (let ((expanded (if (and (string-match-p "src/app" match)
+                             (string-match-p "src/app/$" file-path))
+                        (expand-file-name match project-root)
+                      (expand-file-name match file-path))))
+      (when (string-prefix-p search expanded)
+        (let* ((remainder (substring expanded (length search)))
+               (target (concat (directory-file-name replace) remainder)))
+          (cond
+           ((eq angular-import-path-style 'absolute)
+            (file-relative-name target project-root))
+           (t ; relative
+            (let ((rel (file-relative-name target file-path)))
+              (if (or (string-prefix-p "./" rel) (string-prefix-p "../" rel))
+                  rel
+                (concat "./" rel))))))))))
+
 (defun angular-update-import-paths (old-path new-path)
-  "Update import paths in TypeScript files from OLD-PATH to NEW-PATH."
+  "Update import paths in TypeScript files from OLD-PATH to NEW-PATH.
+Handles static imports, dynamic import(), and loadChildren/loadComponent."
   (let* ((project-root (angular-find-project-root))
-         (app-directory (expand-file-name "src/app" project-root))
+         (src-directory (expand-file-name "src" project-root))
          (search (expand-file-name old-path project-root))
          (replace (expand-file-name new-path project-root))
-         (import-regex "import\\s-+{.*?}\\s-+from\\s-+\\(['\\\"]\\)\\(.*?\\)\\1"))
-    (dolist (ts-file (directory-files-recursively app-directory "\\.ts$"))
+         ;; Match: import {...} from '...' (possibly multi-line)
+         (static-import-regex "import\\s-+{[^}]*}\\s-+from\\s-+\\(['\"]\\)\\([^'\"]+\\)\\1")
+         ;; Match: import('...')  (dynamic imports for lazy loading)
+         (dynamic-import-regex "import(\\s-*\\(['\"]\\)\\([^'\"]+\\)\\1\\s-*)")
+         (update-count 0))
+    (dolist (ts-file (directory-files-recursively src-directory "\\.ts$"))
       (with-temp-buffer
         (insert-file-contents ts-file)
-        (goto-char (point-min))
-        (let ((original-contents (buffer-string))
+        (let ((original (buffer-string))
               (file-path (file-name-directory ts-file)))
-          (while (re-search-forward import-regex nil t)
-            (let ((match (match-string 2)))
-              (unless (string-prefix-p "@" match)
-                (let ((expanded-match
-                       (if (and (string-match-p "src/app" match)
-                                (string-match-p "src/app/$" file-path))
-                           (expand-file-name match project-root)
-                         (expand-file-name match file-path))))
-                  (when (string-prefix-p search expanded-match)
-                    (let* ((remainder (substring expanded-match (length search)))
-                           (final-path
-                            (cond
-                             ((eq angular-import-path-style 'absolute)
-                              (file-relative-name
-                               (concat (directory-file-name replace) remainder) project-root))
-                             ((eq angular-import-path-style 'relative)
-                              (let ((rel (file-relative-name
-                                          (concat (directory-file-name replace) remainder) file-path)))
-                                (if (or (string-prefix-p "./" rel) (string-prefix-p "../" rel))
-                                    rel
-                                  (concat "./" rel)))))))
-                      (replace-match final-path nil nil nil 2)))))))
-          (when (not (equal (buffer-string) original-contents))
-            (write-region (point-min) (point-max) ts-file)))))))
+          ;; Static imports
+          (goto-char (point-min))
+          (while (re-search-forward static-import-regex nil t)
+            (let ((new-import (angular--compute-new-import
+                               (match-string 2) file-path search replace project-root)))
+              (when new-import
+                (replace-match new-import nil nil nil 2)
+                (cl-incf update-count))))
+          ;; Dynamic imports
+          (goto-char (point-min))
+          (while (re-search-forward dynamic-import-regex nil t)
+            (let ((new-import (angular--compute-new-import
+                               (match-string 2) file-path search replace project-root)))
+              (when new-import
+                (replace-match new-import nil nil nil 2)
+                (cl-incf update-count))))
+          (when (not (equal (buffer-string) original))
+            (write-region (point-min) (point-max) ts-file)))))
+    (when (> update-count 0)
+      (message "Updated %d import paths" update-count))))
 
 ;;; ============================================================
 ;;; Move & Rename
 ;;; ============================================================
 
 (defun angular-move-directory (current-directory destination)
-  "Move Angular component from CURRENT-DIRECTORY to DESTINATION."
-  (interactive (list (read-directory-name "Current directory: ")
-                     (read-directory-name "New directory: ")))
-  (let* ((current-dir (expand-file-name (directory-file-name (file-name-directory current-directory))))
+  "Move Angular component directory to DESTINATION.
+Updates all import paths and reverts open buffers."
+  (interactive (list (read-directory-name "Directory to move: ")
+                     (read-directory-name "Move to: ")))
+  (let* ((current-dir (expand-file-name (directory-file-name current-directory)))
          (current-dir-name (file-name-nondirectory current-dir))
-         (new-dir (file-name-concat (expand-file-name (file-name-directory destination)) current-dir-name)))
+         (new-dir (expand-file-name current-dir-name destination)))
     (when (file-directory-p new-dir)
-      (user-error "Destination already has a directory named '%s'" current-dir-name))
+      (user-error "Destination already has '%s'" current-dir-name))
     (unless (file-directory-p destination)
       (make-directory destination :parents))
     (rename-file current-dir new-dir t)
-    (angular-update-import-paths current-dir new-dir)))
+    (angular-update-import-paths current-dir new-dir)
+    ;; Revert buffers that were visiting files in the old directory
+    (dolist (buf (buffer-list))
+      (when-let* ((file (buffer-file-name buf)))
+        (when (string-prefix-p (file-name-as-directory current-dir) file)
+          (let ((new-file (concat (file-name-as-directory new-dir)
+                                  (substring file (length (file-name-as-directory current-dir))))))
+            (when (file-exists-p new-file)
+              (with-current-buffer buf
+                (set-visited-file-name new-file t t)))))))
+    (message "Moved %s to %s" current-dir-name (abbreviate-file-name destination))))
 
 (defun angular-move-file (current-path destination)
-  "Move Angular file from CURRENT-PATH to DESTINATION."
+  "Move Angular file and all associated files to DESTINATION.
+For components, moves .ts, .html, .scss/.css, and .spec.ts together.
+For services/pipes/etc, moves .ts and .spec.ts."
   (interactive (list (read-file-name "Select file: ")
                      (read-directory-name "New directory: ")))
-  (let* ((is-spec (string-suffix-p ".spec.ts" current-path))
-         (base-name (file-name-sans-extension (file-name-nondirectory current-path)))
-         (base-path (file-name-directory current-path))
-         (file-stem (if is-spec
-                        (file-name-sans-extension (file-name-sans-extension (file-name-nondirectory current-path)))
-                      (file-name-sans-extension (file-name-nondirectory current-path))))
-         (spec-exists (or is-spec
-                          (file-exists-p (expand-file-name (concat base-name ".spec.ts") base-path))))
-         (file-ext (if is-spec (concat file-stem ".ts") (file-name-nondirectory current-path)))
-         (spec-ext (if is-spec (file-name-nondirectory current-path) (concat base-name ".spec.ts")))
-         (old-file (expand-file-name file-ext base-path))
-         (new-file (expand-file-name file-ext destination))
-         (old-spec (expand-file-name spec-ext base-path))
-         (new-spec (expand-file-name spec-ext destination)))
+  (let* ((current-path (expand-file-name current-path))
+         (destination (expand-file-name destination))
+         (base-dir (file-name-directory current-path))
+         (filename (file-name-nondirectory current-path))
+         ;; Extract the stem: "auth.component" or "auth.service"
+         (stem (cond
+                ((string-match "^\\(.+\\)\\.spec\\.ts$" filename)
+                 (match-string 1 filename))
+                ((string-match "^\\(.+\\)\\.[^.]+$" filename)
+                 (match-string 1 filename))))
+         (moved 0))
+    (unless stem
+      (user-error "Cannot determine file stem from %s" filename))
     (unless (file-directory-p destination)
       (make-directory destination :parents))
-    (rename-file old-file new-file t)
-    (when spec-exists
-      (rename-file old-spec new-spec t))
-    (angular-update-import-paths
-     (file-name-sans-extension old-file) (file-name-sans-extension new-file))
-    (when spec-exists
-      (angular-update-import-paths
-       (file-name-sans-extension old-spec) (file-name-sans-extension new-spec)))))
+    ;; Find and move all files matching the stem
+    (dolist (file (directory-files base-dir t (format "^%s\\." (regexp-quote stem))))
+      (let ((new-file (expand-file-name (file-name-nondirectory file) destination)))
+        (rename-file file new-file t)
+        (cl-incf moved)))
+    ;; Update imports for the main .ts file
+    (let ((old-import (expand-file-name stem base-dir))
+          (new-import (expand-file-name stem destination)))
+      (angular-update-import-paths old-import new-import))
+    (message "Moved %d files to %s" moved (abbreviate-file-name destination))))
 
 (defun angular-rename-component ()
   "Rename an Angular component (files, class, selector, imports)."
